@@ -1,0 +1,17 @@
+{
+  "name": "android-vitals-mcp",
+  "version": "1.0.1",
+  "description": "MCP Server for fetching Android Vitals from Google Play Developer Reporting API",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "android-vitals-mcp": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.1",
+    "googleapis": "^144.0.0"
+  }
+}
