@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Service account keys (never commit credentials)
+service-key/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

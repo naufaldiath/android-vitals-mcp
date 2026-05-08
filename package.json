@@ -1,14 +1,46 @@
 {
   "name": "android-vitals-mcp",
-  "version": "1.0.1",
-  "description": "MCP Server for fetching Android Vitals from Google Play Developer Reporting API",
+  "version": "1.2.0",
+  "description": "MCP server + auto-installable skills for Android Vitals (crash, ANR, slow rendering, startup) via the Google Play Developer Reporting API",
   "main": "index.js",
   "type": "module",
   "bin": {
-    "android-vitals-mcp": "index.js"
+    "android-vitals-mcp": "index.js",
+    "android-vitals-install-skills": "bin/install-skills.js"
   },
+  "files": [
+    "index.js",
+    "postinstall.js",
+    "bin/",
+    "lib/",
+    "skills/",
+    "README.md",
+    "CLAUDE.md"
+  ],
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "install-skills": "node bin/install-skills.js",
+    "postinstall": "node postinstall.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "android",
+    "android-vitals",
+    "google-play",
+    "play-developer-reporting",
+    "crash-rate",
+    "anr",
+    "slow-rendering",
+    "startup-time",
+    "agent-skills",
+    "skills",
+    "claude-code"
+  ],
+  "author": "Naufaldi Athallah Rifqi <naufaldi.rifqi@mekari.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1",

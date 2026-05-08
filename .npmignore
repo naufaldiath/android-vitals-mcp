@@ -1,0 +1,9 @@
+service-key/
+android-vitals-mcp-plan.md
+.DS_Store
+node_modules/
+.git/
+.gitignore
+*.log
+npm-debug.log*
+.worktrees/
