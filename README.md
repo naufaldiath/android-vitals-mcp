@@ -90,7 +90,3 @@ Re-running `android-vitals-install-skills` is safe:
 * If a `SKILL.md` already exists and is byte-identical → no-op (`= unchanged`).
 * If it differs → the existing file is renamed to `SKILL.md.bak` and the new one is written (`↻ updated`). Pass `--force` to skip the backup.
 * `--dry-run` reports what *would* change without touching disk.
-
-## Source / issues
-
-[github.com/naufaldiath/android-vital-mcp](https://github.com/naufaldiath/android-vital-mcp) (replace with your actual repo).
