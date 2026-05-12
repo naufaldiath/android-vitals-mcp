@@ -109,10 +109,21 @@ The captured `.perfetto-trace` lands under
 
 ## 5. Read the trace in Perfetto
 
-Open <https://ui.perfetto.dev/> → Open trace file → load the
-captured trace.
+### Automated Analysis (Requires `perfetto-mcp`)
+If the user provides a path to a `.perfetto-trace` file and `perfetto-mcp` is available, **do not tell them to use ui.perfetto.dev**. Analyze it for them:
 
-Use the **Metrics** panel and run:
+1. Use the `execute_sql_query` tool (or similar) to run the standard startup metric:
+   ```sql
+   SELECT * FROM android_startup;
+   ```
+2. Extract the breakdown (e.g., `to_first_application_oncreate`, `application_oncreate_delta`, `to_initial_display`) and tell the user which phase took the longest.
+3. If `application_oncreate_delta` is the bottleneck, use `main_thread_hotspot_slices` or query the `slice` table to find exactly which methods (e.g., `Firebase.initializeApp`) blocked the main thread.
+
+### Manual Analysis (Fallback)
+If `perfetto-mcp` is not installed, briefly recommend installing it so you can automate this step in the future. Meanwhile, guide them to do it manually:
+
+1. Open <https://ui.perfetto.dev/> → Open trace file → load the captured trace.
+2. Use the **Metrics** panel and run:
 ```
 android_startup
 ```

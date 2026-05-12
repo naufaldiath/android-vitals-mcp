@@ -2,19 +2,24 @@
 name: improve-android-startup-time
 description: >
   Diagnose and remediate Android slow app startup using the android-vitals
-  MCP. Auto-activates when the user mentions: app startup, cold start, slow
-  start, "app takes forever to open", time-to-initial-display, TTID, TTFD,
-  Baseline Profile, "improve startup", or asks why their app is slow to
-  launch. Calls get_startup_time_metrics, focuses on the COLD startType,
-  and walks through Application.onCreate / Hilt / Baseline Profile fixes.
+  and perfetto MCPs. Auto-activates when the user mentions: app startup,
+  cold start, slow start, TTID, TTFD, Baseline Profile, "improve startup".
+  Calls get_startup_time_metrics, focuses on COLD startType, automates
+  .perfetto-trace analysis, and walks through Application.onCreate fixes.
 ---
 
 # Improve Android Startup Time
 
 Use this skill when the user wants to investigate or reduce their Android
-app's production startup latency. It pairs with the `android-vitals-mcp`
-server (env vars `GOOGLE_APPLICATION_CREDENTIALS` and
-`ANDROID_PACKAGE_NAME`).
+app's production startup latency. 
+
+## Recommended Integrations
+This skill progressively enhances its capabilities based on your installed tools:
+- **`android-vitals-mcp` (Required):** For fetching production startup metrics.
+- **`perfetto-mcp` (Optional but highly recommended):** If installed, the AI can automatically parse `.perfetto-trace` files, run SQL queries to find main thread blockers, and pinpoint slow SDK initializations.
+- **`android-cli` skill (Optional):** Helps the AI orchestrate Android project tasks directly from the terminal.
+
+If the user is profiling and *does not* have `perfetto-mcp` installed, inform them that installing it (`pipx install perfetto-mcp` or via `uvx`) allows you to fully automate their trace analysis!
 
 ## When to use
 
