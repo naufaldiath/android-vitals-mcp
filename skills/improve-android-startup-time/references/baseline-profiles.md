@@ -15,50 +15,42 @@ start.
 
 ## 1. Add the gradle plugins
 
-In the project's `build.gradle.kts` (root):
+In the project's `build.gradle` (root):
 
-```kotlin
+```groovy
 plugins {
-  id("androidx.baselineprofile") version "1.3.0" apply false
+  id "androidx.baselineprofile" version "1.3.0" apply false
 }
 ```
 
-In `app/build.gradle.kts`:
+In `app/build.gradle`:
 
-```kotlin
+```groovy
 plugins {
-  id("com.android.application")
-  id("androidx.baselineprofile")
-}
-
-android {
-  defaultConfig {
-    minSdk = 28           // Baseline Profiles work best on API 28+
-  }
+  id 'com.android.application'
+  id 'androidx.baselineprofile'
 }
 
 dependencies {
-  implementation("androidx.profileinstaller:profileinstaller:1.4.1")
-  baselineProfile(project(":baselineprofile"))   // see below
+  implementation "androidx.profileinstaller:profileinstaller:1.4.1"
+  baselineProfile project(':macrobenchmark')   // see below
 }
 
 baselineProfile {
+  // Automatically merge generated profiles into src/main/generated/baselineProfiles/
+  // This allows the profiles to be committed to version control.
+  saveInSrc = true
   automaticGenerationDuringBuild = false
 }
 ```
 
-## 2. Create the `:baselineprofile` Macrobenchmark module
+## 2. Create the `:macrobenchmark` module
 
-Right-click the project root in Android Studio → New → Module →
-Baseline Profile Generator. The wizard scaffolds:
+If you don't have one, create a macrobenchmark module. 
 
-```
-baselineprofile/
-  build.gradle.kts
-  src/main/java/.../BaselineProfileGenerator.kt
-```
+**Important:** If testing on Android 16 (API 36) or using AGP 9+, you **must** use `benchmark-macro-junit4` version **`1.4.1`** or higher. Older versions will crash with a `pm dump-profiles` error.
 
-The generator looks like:
+The generator (`macrobenchmark/src/main/java/.../BaselineProfileGenerator.kt`) should look like this:
 
 ```kotlin
 @RunWith(AndroidJUnit4::class)
@@ -66,7 +58,8 @@ class BaselineProfileGenerator {
   @get:Rule val rule = BaselineProfileRule()
 
   @Test fun generate() = rule.collect(
-    packageName = "com.example",
+    // Use dynamic package name to support multiple build variants (e.g., dev, staging, prod)
+    packageName = InstrumentationRegistry.getInstrumentation().targetContext.packageName,
     includeInStartupProfile = true,
   ) {
     pressHome()
@@ -88,17 +81,47 @@ interaction. This is what gets AOT-compiled.
 ./gradlew :app:generateReleaseBaselineProfile
 ```
 
-The output lands at
-`app/src/release/generated/baselineProfiles/baseline-prof.txt`.
-It's a list of method signatures — commit this file.
+If you configured `saveInSrc = true`, the output lands at
+`app/src/main/generated/baselineProfiles/baseline-prof.txt` (or the specific flavor's source folder).
+It's a list of method signatures — **commit this file**.
 
-## 4. Verify inclusion in the AAB
+## 4. Verify locally using StartupBenchmark
+
+Instead of relying solely on ADB, you should update your `StartupBenchmark.kt` to test both modes side-by-side:
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+class StartupBenchmark {
+    @get:Rule val benchmarkRule = MacrobenchmarkRule()
+
+    @Test fun startupNoCompilation() = startup(CompilationMode.None())
+    @Test fun startupBaselineProfile() = startup(CompilationMode.Partial(baselineProfileMode = BaselineProfileMode.Require))
+
+    private fun startup(compilationMode: CompilationMode) = benchmarkRule.measureRepeated(
+        packageName = InstrumentationRegistry.getInstrumentation().targetContext.packageName,
+        metrics = listOf(StartupTimingMetric()),
+        compilationMode = compilationMode,
+        iterations = 5,
+        startupMode = StartupMode.COLD
+    ) {
+        pressHome()
+        startActivityAndWait()
+    }
+}
+```
+
+Run the benchmark locally:
+```bash
+./gradlew :macrobenchmark:connectedReleaseAndroidTest
+```
+Compare `startupNoCompilation` vs `startupBaselineProfile`. Expect 10–30% improvement on cold start.
+
+## 5. Verify inclusion in the AAB
 
 After `./gradlew :app:bundleRelease`:
 
 ```bash
-unzip -l app/build/outputs/bundle/release/app-release.aab \
-  | grep baseline-prof
+unzip -l app/build/outputs/bundle/release/app-release.aab   | grep baseline-prof
 ```
 
 Expect to see:
