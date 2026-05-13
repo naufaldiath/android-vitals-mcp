@@ -179,10 +179,15 @@ async function main() {
   return 0;
 }
 
-main().then(
-  (code) => { process.exitCode = code ?? 0; },
-  (err) => {
-    console.error(err.message);
-    process.exitCode = 1;
-  },
-);
+export default main;
+
+// Run directly when invoked as a standalone script
+if (process.argv[1] && (process.argv[1].endsWith("setup-mcp.js") || process.argv[1].endsWith("android-vitals-mcp-setup"))) {
+  main().then(
+    (code) => { process.exitCode = code ?? 0; },
+    (err) => {
+      console.error(err.message);
+      process.exitCode = 1;
+    },
+  );
+}

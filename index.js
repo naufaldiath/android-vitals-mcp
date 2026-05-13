@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+
+// Subcommand dispatch — must come before any MCP server code
+if (process.argv[2] === "setup") {
+  const { default: setup } = await import("./bin/setup-mcp.js");
+  process.exit(await setup() ?? 0);
+}
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {

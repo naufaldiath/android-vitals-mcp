@@ -26,7 +26,7 @@ ${banner}
 Get started in two commands:
 
   1. Connect your Google Play Console:
-       npx android-vitals-mcp-setup
+       npx android-vitals-mcp setup
 
   2. Install the skill playbooks into every detected AI CLI:
        npx android-vitals-install-skills

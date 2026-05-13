@@ -14,15 +14,15 @@ Android Vitals for AI agents. Connect your Google Play Console and get four guid
 **Step 1 — connect your Play Console:**
 
 ```bash
-npx android-vitals-mcp-setup
+npx android-vitals-mcp setup
 ```
 
 Prompts for your Service Account key path and Android package name, then writes the MCP server config into every detected AI CLI (`~/.claude.json`, `~/.gemini/settings.json`, `~/.cursor/mcp.json`, `~/.kiro/settings/mcp.json`).
 
 Options:
 ```bash
-npx android-vitals-mcp-setup --dry-run        # preview without writing
-npx android-vitals-mcp-setup --cli claude     # limit to one CLI
+npx android-vitals-mcp setup --dry-run        # preview without writing
+npx android-vitals-mcp setup --cli claude     # limit to one CLI
 ```
 
 **Step 2 — install the skill playbooks:**
