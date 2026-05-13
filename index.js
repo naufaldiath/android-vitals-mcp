@@ -11,21 +11,52 @@ import { google } from "googleapis";
 const SERVICE_ACCOUNT_FILE = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 const PACKAGE_NAME = process.env.ANDROID_PACKAGE_NAME;
 
-if (!SERVICE_ACCOUNT_FILE || !PACKAGE_NAME) {
-  console.error("Missing required environment variables: GOOGLE_APPLICATION_CREDENTIALS or ANDROID_PACKAGE_NAME");
-  process.exit(1);
+const missing = [
+  !SERVICE_ACCOUNT_FILE && "GOOGLE_APPLICATION_CREDENTIALS",
+  !PACKAGE_NAME         && "ANDROID_PACKAGE_NAME",
+].filter(Boolean);
+
+// Lazy-initialized API client — only created when env vars are present
+let reporting = null;
+if (SERVICE_ACCOUNT_FILE && PACKAGE_NAME) {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: SERVICE_ACCOUNT_FILE,
+    scopes: ["https://www.googleapis.com/auth/playdeveloperreporting"],
+  });
+  reporting = google.playdeveloperreporting({ version: "v1beta1", auth });
 }
 
-// Authenticate and Initialize API Client
-const auth = new google.auth.GoogleAuth({
-  keyFile: SERVICE_ACCOUNT_FILE,
-  scopes: ["https://www.googleapis.com/auth/playdeveloperreporting"],
-});
+const CONFIG_HINT = `\
+To fix this, add the missing value(s) to your MCP host config and restart.
 
-const reporting = google.playdeveloperreporting({
-  version: "v1beta1",
-  auth: auth,
-});
+Example entry in ~/.claude.json (or ~/.gemini/mcp.json):
+
+  {
+    "mcpServers": {
+      "android-vitals": {
+        "command": "npx",
+        "args": ["-y", "android-vitals-mcp"],
+        "env": {
+          "GOOGLE_APPLICATION_CREDENTIALS": "/absolute/path/to/service-account-key.json",
+          "ANDROID_PACKAGE_NAME": "com.your.company.app"
+        }
+      }
+    }
+  }
+
+Where to get each value:
+
+  GOOGLE_APPLICATION_CREDENTIALS
+    Path to a Google Service Account JSON key.
+    1. Google Cloud Console → IAM & Admin → Service Accounts
+       https://console.cloud.google.com/iam-admin/serviceaccounts
+    2. Create a service account, add a JSON key, download it.
+    3. Google Play Console → Setup → API access → grant that account
+       "View app information (read-only)".
+
+  ANDROID_PACKAGE_NAME
+    Your app's package ID (e.g. com.example.myapp).
+    Find it in Google Play Console → All apps → select your app.`;
 
 // Initialize MCP Server
 const server = new Server(
@@ -99,6 +130,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 // Handle Tool Execution
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+
+  if (missing.length > 0) {
+    return {
+      isError: true,
+      content: [{
+        type: "text",
+        text: `android-vitals-mcp is not configured. Missing: ${missing.join(", ")}\n\n${CONFIG_HINT}`
+      }]
+    };
+  }
+
   const days = args?.days || 7;
   const timeRange = getTimeRange(days);
 
@@ -158,7 +200,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function run() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Android Vitals MCP server running on stdio");
+  if (missing.length > 0) {
+    console.error(`android-vitals-mcp: server started but missing env var(s): ${missing.join(", ")} — tools will return setup instructions until configured.`);
+  } else {
+    console.error("Android Vitals MCP server running on stdio");
+  }
 }
 
 run().catch(console.error);
