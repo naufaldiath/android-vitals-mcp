@@ -111,28 +111,26 @@ async function main() {
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
 
-  // Prompt for credentials
-  let credPath = (await prompt(rl, "Path to Google Service Account JSON key file:\n> ")).trim();
+  const CRED_PLACEHOLDER = "/path/to/service-account-key.json";
+  const PKG_PLACEHOLDER  = "com.your.company.app";
 
-  if (credPath.startsWith("~/")) {
-    credPath = path.join(home, credPath.slice(2));
-  }
-  if (!credPath) {
-    console.error("\nError: path is required.");
-    rl.close();
-    return 1;
-  }
-  if (!existsSync(credPath)) {
-    console.warn(`\nWarning: no file found at "${credPath}" — registering anyway, but the server will fail to authenticate until the file exists.\n`);
+  // Prompt for credentials (both optional — placeholders used if skipped)
+  let credPath = (await prompt(rl, "Path to Google Service Account JSON key file (Enter to skip):\n> ")).trim();
+  if (credPath.startsWith("~/")) credPath = path.join(home, credPath.slice(2));
+
+  const credSkipped = !credPath;
+  if (credSkipped) credPath = CRED_PLACEHOLDER;
+  else if (!existsSync(credPath)) {
+    console.warn(`\nWarning: no file found at "${credPath}" — registering anyway.\n`);
   }
 
-  let packageName = (await prompt(rl, "\nAndroid package name (e.g. com.example.myapp):\n> ")).trim();
+  let packageName = (await prompt(rl, "\nAndroid package name (e.g. com.example.myapp) (Enter to skip):\n> ")).trim();
   rl.close();
 
-  if (!packageName) {
-    console.error("\nError: package name is required.");
-    return 1;
-  }
+  const pkgSkipped = !packageName;
+  if (pkgSkipped) packageName = PKG_PLACEHOLDER;
+
+  const anySkipped = credSkipped || pkgSkipped;
 
   const mcpEntry = {
     command: "npx",
@@ -170,7 +168,15 @@ async function main() {
   if (args.dryRun) {
     console.log("Dry-run complete. No files were written.");
   } else if (registered > 0) {
-    console.log("Done! Restart your AI CLI to load the android-vitals MCP server.");
+    if (anySkipped) {
+      console.log("Config registered with placeholder value(s). Before using the MCP tools,");
+      console.log("open the config file(s) above and replace:");
+      if (credSkipped) console.log(`  "GOOGLE_APPLICATION_CREDENTIALS": "${CRED_PLACEHOLDER}"  ← replace with your actual key path`);
+      if (pkgSkipped)  console.log(`  "ANDROID_PACKAGE_NAME": "${PKG_PLACEHOLDER}"   ← replace with your app's package ID`);
+      console.log("\nThen restart your AI CLI.");
+    } else {
+      console.log("Done! Restart your AI CLI to load the android-vitals MCP server.");
+    }
     console.log("\nTip: also run  npx android-vitals-install-skills  to install the guided skill playbooks.");
   } else {
     console.log("No supported AI CLIs detected. Run with --help to see supported tools.");
