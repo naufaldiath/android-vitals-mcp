@@ -76,5 +76,5 @@ All tools accept an optional `days` argument (default `7`) and are called automa
 
 Both commands are safe to re-run:
 
-- `android-vitals-mcp-setup`: overwrites only the `"android-vitals"` key under `mcpServers`; all other config in the file is preserved.
+- `android-vitals-mcp setup`: overwrites only the `"android-vitals"` key under `mcpServers`; all other config in the file is preserved.
 - `android-vitals-install-skills`: no-op if the skill is already byte-identical (`= unchanged`); otherwise renames the old file to `.bak` before writing (`↻ updated`). Pass `--force` to skip the backup.

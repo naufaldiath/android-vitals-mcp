@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>android-vitals-mcp — Poster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&family=Syne+Mono&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #05080e;
+    --surface: #0b0f18;
+    --card: #0f1420;
+    --card2: #131825;
+    --teal: #00d4aa;
+    --teal-dim: rgba(0, 212, 170, 0.12);
+    --teal-glow: rgba(0, 212, 170, 0.25);
+    --red: #ff5555;
+    --amber: #f5a623;
+    --blue: #4da8ff;
+    --purple: #a78bfa;
+    --text: #e8edf5;
+    --muted: #6b7a9a;
+    --border: rgba(0, 212, 170, 0.18);
+    --border-subtle: rgba(255,255,255,0.06);
+  }
+
+  html { background: var(--bg); }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0.018;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 64px 40px 80px;
+  }
+
+  /* ── SCAN LINE ANIMATION ── */
+  .scan-line {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--teal), transparent);
+    opacity: 0.6;
+    animation: scan 6s linear infinite;
+    pointer-events: none;
+    z-index: 100;
+  }
+  @keyframes scan {
+    from { top: 0; }
+    to { top: 100vh; }
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 24px;
+    margin-bottom: 64px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .badge-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+
+  .badge-mcp {
+    color: var(--teal);
+    border-color: var(--teal);
+    background: var(--teal-dim);
+  }
+
+  .badge-version {
+    color: var(--muted);
+    border-color: rgba(107,122,154,0.3);
+    background: rgba(107,122,154,0.07);
+  }
+
+  .badge-npm {
+    color: var(--red);
+    border-color: rgba(255,85,85,0.3);
+    background: rgba(255,85,85,0.07);
+  }
+
+  .main-title {
+    font-size: clamp(48px, 7vw, 88px);
+    font-weight: 800;
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+
+  .main-title span {
+    color: var(--teal);
+    display: inline-block;
+    position: relative;
+  }
+
+  .main-title span::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--teal);
+    opacity: 0.4;
+    border-radius: 2px;
+  }
+
+  .tagline {
+    margin-top: 20px;
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 480px;
+  }
+
+  .tagline strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  .play-logo {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, var(--teal-dim), rgba(0,212,170,0.04));
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    filter: drop-shadow(0 0 20px var(--teal-glow));
+  }
+
+  .live-dot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--teal);
+    letter-spacing: 0.08em;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--teal);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--teal-glow); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 6px transparent; }
+  }
+
+  /* ── ARCHITECTURE FLOW ── */
+  .arch-section {
+    margin-bottom: 56px;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 28px 32px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .arch-flow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--teal-dim), transparent 60%);
+    border-radius: 16px;
+  }
+
+  .arch-node {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .arch-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin: 0 auto 10px;
+    border: 1px solid;
+  }
+
+  .arch-icon.agent { background: rgba(77,168,255,0.1); border-color: rgba(77,168,255,0.3); }
+  .arch-icon.mcp   { background: rgba(0,212,170,0.1); border-color: rgba(0,212,170,0.35); }
+  .arch-icon.api   { background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.3); }
+
+  .arch-name {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 3px;
+  }
+
+  .arch-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .arch-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0 16px;
+    color: var(--teal);
+  }
+
+  .arch-arrow-line {
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--teal), var(--teal));
+    position: relative;
+  }
+
+  .arch-arrow-line::after {
+    content: '▶';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 8px;
+    color: var(--teal);
+  }
+
+  .arch-label-sm {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  /* ── TOOLS GRID ── */
+  .tools-section {
+    margin-bottom: 56px;
+  }
+
+  .tools-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  .tools-grid-secondary {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .tool-card.featured {
+    padding: 32px;
+  }
+
+  .tool-card.compact {
+    padding: 20px 28px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .tool-card.compact .tool-header {
+    margin-bottom: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .tool-card.compact .tool-desc {
+    margin-bottom: 0;
+  }
+
+  .tool-card.compact .tool-tags {
+    justify-content: flex-end;
+  }
+
+  .tool-card {
+    background: var(--card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, transform 0.3s;
+    cursor: default;
+  }
+
+  .tool-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .tool-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .tool-card::after {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    opacity: 0.06;
+    pointer-events: none;
+  }
+
+  .tool-card.crash::before { background: var(--red); }
+  .tool-card.crash::after  { background: var(--red); }
+  .tool-card.crash:hover   { border-color: rgba(255,85,85,0.25); }
+
+  .tool-card.anr::before   { background: var(--amber); }
+  .tool-card.anr::after    { background: var(--amber); }
+  .tool-card.anr:hover     { border-color: rgba(245,166,35,0.25); }
+
+  .tool-card.render::before { background: var(--blue); }
+  .tool-card.render::after  { background: var(--blue); }
+  .tool-card.render:hover   { border-color: rgba(77,168,255,0.25); }
+
+  .tool-card.startup::before { background: var(--teal); }
+  .tool-card.startup::after  { background: var(--teal); }
+  .tool-card.startup:hover   { border-color: rgba(0,212,170,0.25); }
+
+  .tool-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .tool-icon-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .tool-emoji {
+    font-size: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid;
+  }
+
+  .crash .tool-emoji  { background: rgba(255,85,85,0.1); border-color: rgba(255,85,85,0.25); }
+  .anr .tool-emoji    { background: rgba(245,166,35,0.1); border-color: rgba(245,166,35,0.25); }
+  .render .tool-emoji { background: rgba(77,168,255,0.1); border-color: rgba(77,168,255,0.25); }
+  .startup .tool-emoji{ background: rgba(0,212,170,0.1); border-color: rgba(0,212,170,0.25); }
+
+  .tool-name {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+
+  .tool-fn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 400;
+    opacity: 0.55;
+  }
+
+  .tool-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .metric-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .crash .metric-val  { color: var(--red); }
+  .anr .metric-val    { color: var(--amber); }
+  .render .metric-val { color: var(--blue); }
+  .startup .metric-val{ color: var(--teal); }
+
+  .metric-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    text-align: right;
+  }
+
+  .tool-desc {
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.55;
+    margin-bottom: 18px;
+  }
+
+  .tool-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-subtle);
+    color: var(--muted);
+  }
+
+  /* ── SKILLS SECTION ── */
+  .skills-section {
+    margin-bottom: 56px;
+  }
+
+  .skills-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .skill-card {
+    background: var(--card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skill-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--teal), transparent);
+    opacity: 0.5;
+  }
+
+  .skill-trigger {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: var(--teal);
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+
+  .skill-name {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+
+  .skill-desc {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ── INSTALL ── */
+  .install-section {
+    margin-bottom: 56px;
+  }
+
+  .install-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .install-block {
+    background: var(--card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 24px 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .install-block::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--teal-dim) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .install-step {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--teal);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .install-title {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+
+  .code-block {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--teal);
+    line-height: 1.7;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .code-block::before {
+    content: '$ ';
+    color: var(--muted);
+  }
+
+  .code-comment {
+    color: var(--muted);
+    font-size: 10.5px;
+  }
+
+  .code-comment::before { content: '# '; }
+
+  /* ── BOTTOM ── */
+  .footer {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 32px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .compat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  .cli-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .cli-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 100px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-subtle);
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+
+  .cli-chip:hover {
+    background: var(--teal-dim);
+    border-color: var(--border);
+    color: var(--teal);
+  }
+
+  .author-block {
+    text-align: right;
+  }
+
+  .author-name {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .author-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .npm-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,85,85,0.08);
+    border: 1px solid rgba(255,85,85,0.2);
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #ff7777;
+  }
+
+  /* ── HERO METRICS BAR ── */
+  .hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 56px;
+  }
+
+  .hero-metric {
+    background: var(--card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .hero-metric-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .hero-metric-label {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+
+  /* ── ANIMATED COUNTER ── */
+  .counter { display: inline-block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .header      { animation: fadeUp 0.6s ease both; }
+  .hero-metrics{ animation: fadeUp 0.6s 0.15s ease both; }
+  .arch-section{ animation: fadeUp 0.6s 0.25s ease both; }
+  .tools-section{animation: fadeUp 0.6s 0.35s ease both; }
+  .skills-section{animation: fadeUp 0.6s 0.45s ease both; }
+  .install-section{animation: fadeUp 0.6s 0.5s ease both; }
+  .footer      { animation: fadeUp 0.6s 0.55s ease both; }
+
+  /* ── GLOW ORBS ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 {
+    width: 500px; height: 500px;
+    background: rgba(0,212,170,0.06);
+    top: -200px; right: -100px;
+  }
+  .orb-2 {
+    width: 400px; height: 400px;
+    background: rgba(77,168,255,0.04);
+    bottom: -100px; left: -100px;
+  }
+</style>
+</head>
+<body>
+
+<div class="scan-line"></div>
+<div class="grid-bg"></div>
+<div class="noise"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div>
+      <div class="badge-row">
+        <span class="badge badge-mcp">MCP Server</span>
+        <span class="badge badge-version">v1.4.3</span>
+        <span class="badge badge-npm">npm</span>
+      </div>
+      <h1 class="main-title">android<br><span>vitals</span>-mcp</h1>
+      <p class="tagline">
+        Your AI agent's playbook for <strong>ANR freezes, janky rendering &amp; cold start regressions</strong> —
+        live data straight from the Google Play Developer Reporting API, diagnosed and fixed automatically.
+      </p>
+    </div>
+  </header>
+
+  <!-- HERO METRICS -->
+  <div class="hero-metrics">
+    <div class="hero-metric">
+      <div class="hero-metric-num" style="color: var(--amber)">0.47%</div>
+      <div class="hero-metric-label">ANR rate<br>Google's threshold</div>
+    </div>
+    <div class="hero-metric">
+      <div class="hero-metric-num" style="color: var(--blue)">30fps</div>
+      <div class="hero-metric-label">Slow rendering<br>detection threshold</div>
+    </div>
+    <div class="hero-metric">
+      <div class="hero-metric-num" style="color: var(--teal)">TTID</div>
+      <div class="hero-metric-label">Startup tracked<br>COLD / WARM / HOT</div>
+    </div>
+    <div class="hero-metric">
+      <div class="hero-metric-num" style="color: var(--purple)">10+</div>
+      <div class="hero-metric-label">AI CLIs<br>supported</div>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div class="arch-section">
+    <div class="section-label">How it works</div>
+    <div class="arch-flow">
+      <div class="arch-node">
+        <div class="arch-icon agent">🧠</div>
+        <div class="arch-name">AI Agent</div>
+        <div class="arch-sub">Claude / Gemini<br>Copilot / Cursor…</div>
+      </div>
+      <div class="arch-arrow">
+        <div class="arch-arrow-line"></div>
+        <div class="arch-label-sm">MCP call</div>
+      </div>
+      <div class="arch-node">
+        <div class="arch-icon mcp">⚡</div>
+        <div class="arch-name">android-vitals-mcp</div>
+        <div class="arch-sub">Node.js · stdio<br>launched by AI host</div>
+      </div>
+      <div class="arch-arrow">
+        <div class="arch-arrow-line"></div>
+        <div class="arch-label-sm">REST + OAuth2</div>
+      </div>
+      <div class="arch-node">
+        <div class="arch-icon api">🛡️</div>
+        <div class="arch-name">Play Developer<br>Reporting API</div>
+        <div class="arch-sub">Google Service Account<br>playdeveloperreporting</div>
+      </div>
+      <div class="arch-arrow">
+        <div class="arch-arrow-line" style="transform: scaleX(-1)"></div>
+        <div class="arch-label-sm">Raw metrics JSON</div>
+      </div>
+      <div class="arch-node">
+        <div class="arch-icon agent">📊</div>
+        <div class="arch-name">Diagnosis +<br>Fix Prescribed</div>
+        <div class="arch-sub">Thresholds interpreted<br>Code changes suggested</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLS -->
+  <div class="tools-section">
+    <div class="section-label">MCP Tools</div>
+
+    <!-- PRIMARY: ANR · Slow Rendering · Startup -->
+    <div class="tools-grid">
+
+      <div class="tool-card anr featured">
+        <div class="tool-header">
+          <div class="tool-icon-wrap">
+            <div class="tool-emoji">🥶</div>
+            <div>
+              <div class="tool-name">ANR Rate</div>
+              <div class="tool-fn">get_anr_metrics()</div>
+            </div>
+          </div>
+          <div class="tool-metric">
+            <div class="metric-val">0.47%</div>
+            <div class="metric-label">threshold</div>
+          </div>
+        </div>
+        <p class="tool-desc">Returns ANR rate, 7-day user-weighted rate and distinct users affected, segmented by API level and version code. Pinpoints main-thread freezes before they tank your Play Store rating.</p>
+        <div class="tool-tags">
+          <span class="tag">anrRate</span>
+          <span class="tag">anrRate7dUserWeighted</span>
+          <span class="tag">distinctUsers</span>
+          <span class="tag">apiLevel</span>
+          <span class="tag">versionCode</span>
+        </div>
+      </div>
+
+      <div class="tool-card render featured">
+        <div class="tool-header">
+          <div class="tool-icon-wrap">
+            <div class="tool-emoji">🖼️</div>
+            <div>
+              <div class="tool-name">Slow Rendering</div>
+              <div class="tool-fn">get_slow_rendering_metrics()</div>
+            </div>
+          </div>
+          <div class="tool-metric">
+            <div class="metric-val">&lt;20fps</div>
+            <div class="metric-label">+ 30fps threshold</div>
+          </div>
+        </div>
+        <p class="tool-desc">Tracks slow rendering rates at 20fps and 30fps thresholds. Identifies the exact version and API level where jank, dropped frames, and GPU-bound overdraw started spiking.</p>
+        <div class="tool-tags">
+          <span class="tag">slowRenderingRate20Fps</span>
+          <span class="tag">slowRenderingRate30Fps</span>
+          <span class="tag">jank</span>
+          <span class="tag">dropped frames</span>
+        </div>
+      </div>
+
+      <div class="tool-card startup featured">
+        <div class="tool-header">
+          <div class="tool-icon-wrap">
+            <div class="tool-emoji">🚀</div>
+            <div>
+              <div class="tool-name">Startup Time</div>
+              <div class="tool-fn">get_startup_time_metrics()</div>
+            </div>
+          </div>
+          <div class="tool-metric">
+            <div class="metric-val">TTID</div>
+            <div class="metric-label">COLD / WARM / HOT</div>
+          </div>
+        </div>
+        <p class="tool-desc">Slow start rate dimensioned by startType. Diagnoses cold start regressions per version and prescribes targeted fixes — baseline profiles, App Startup library, lazy init patterns.</p>
+        <div class="tool-tags">
+          <span class="tag">slowStartRate</span>
+          <span class="tag">COLD</span>
+          <span class="tag">WARM</span>
+          <span class="tag">HOT</span>
+          <span class="tag">startType</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECONDARY: Crash Rate (compact) -->
+    <div class="tools-grid-secondary">
+      <div class="tool-card crash compact">
+        <div class="tool-emoji" style="flex-shrink:0; width:40px; height:40px; font-size:20px;">💥</div>
+        <div>
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+            <div class="tool-name" style="font-size:14px;">Crash Rate</div>
+            <div class="tool-fn">get_crash_metrics()</div>
+          </div>
+          <p class="tool-desc" style="font-size:12.5px; margin-bottom:0;">Crash rate, error report count and distinct users — broken down by API level and version code.</p>
+        </div>
+        <div class="tool-tags" style="flex-shrink:0; flex-direction:column; align-items:flex-end; gap:5px;">
+          <span class="tag">crashRate</span>
+          <span class="tag">errorReportCount</span>
+          <span class="tag">distinctUsers</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SKILLS -->
+  <div class="skills-section">
+    <div class="section-label">Auto-Activating Agent Skills</div>
+    <div class="skills-grid">
+
+      <div class="skill-card">
+        <div class="skill-trigger">"ANR" · "app not responding"<br>"main-thread freeze"</div>
+        <div class="skill-name">Improve ANR Rate</div>
+        <div class="skill-desc">Detects main-thread violations, prescribes coroutines, async patterns &amp; StrictMode fixes</div>
+      </div>
+
+      <div class="skill-card">
+        <div class="skill-trigger">"jank" · "slow rendering"<br>"dropped frames"</div>
+        <div class="skill-name">Improve Slow Rendering</div>
+        <div class="skill-desc">Pinpoints overdraw, layout inflation &amp; GPU bottlenecks with targeted Compose / View fixes</div>
+      </div>
+
+      <div class="skill-card">
+        <div class="skill-trigger">"cold start" · "TTID"<br>"improve startup"</div>
+        <div class="skill-name">Improve Startup Time</div>
+        <div class="skill-desc">Traces cold/warm/hot start regressions, prescribes baseline profiles &amp; App Startup library</div>
+      </div>
+
+      <div class="skill-card">
+        <div class="skill-trigger">"crash rate" · "improve crashes"<br>"crash-free users"</div>
+        <div class="skill-name">Improve Crash Rate</div>
+        <div class="skill-desc">Identifies regressed versionCode, walks through memory, threading &amp; lifecycle fixes</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- INSTALL -->
+  <div class="install-section">
+    <div class="section-label">Get Started in 2 Steps</div>
+    <div class="install-grid">
+
+      <div class="install-block">
+        <div class="install-step">Step 01 — Connect Play Console</div>
+        <div class="install-title">Run the setup wizard</div>
+        <div class="code-block">npx android-vitals-mcp setup</div>
+        <div style="margin-top: 14px; font-size: 12.5px; color: var(--muted); line-height: 1.6;">
+          Prompts for your Service Account key path and package name,
+          then writes the MCP config into every detected AI CLI automatically.
+        </div>
+        <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted);">
+            <span style="color: var(--teal)">~/.claude.json</span> &nbsp;·&nbsp;
+            <span style="color: var(--teal)">~/.gemini/settings.json</span>
+          </div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted);">
+            <span style="color: var(--teal)">~/.cursor/mcp.json</span> &nbsp;·&nbsp;
+            <span style="color: var(--teal)">~/.kiro/settings/mcp.json</span>
+          </div>
+          <div style="margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted);">
+            Press <span style="color: var(--text)">Enter</span> to skip any prompt — placeholders written, update later.
+          </div>
+        </div>
+      </div>
+
+      <div class="install-block">
+        <div class="install-step">Step 02 — Skills</div>
+        <div class="install-title">Install guided playbooks</div>
+        <div class="code-block">npx android-vitals-install-skills</div>
+        <br>
+        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px;">
+            <span style="color: var(--teal)">✓ installed</span>
+            <span style="color: var(--muted)">new skill written</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px;">
+            <span style="color: var(--muted)">= unchanged</span>
+            <span style="color: var(--muted)">byte-identical, no-op</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px;">
+            <span style="color: var(--amber)">↻ updated</span>
+            <span style="color: var(--muted)">.bak backup created</span>
+          </div>
+        </div>
+        <div style="margin-top: 16px; font-size: 12.5px; color: var(--muted); padding: 10px 14px; border: 1px solid var(--border-subtle); border-radius: 8px; background: rgba(0,0,0,0.2);">
+          Then ask: <span style="color: var(--text); font-weight: 600;">"improve my Android crash rate"</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div>
+      <div class="compat-label">Compatible AI CLIs</div>
+      <div class="cli-list">
+        <span class="cli-chip">Claude Code</span>
+        <span class="cli-chip">Gemini CLI</span>
+        <span class="cli-chip">GitHub Copilot</span>
+        <span class="cli-chip">Cursor</span>
+        <span class="cli-chip">Cline</span>
+        <span class="cli-chip">Kiro</span>
+        <span class="cli-chip">Amp</span>
+        <span class="cli-chip">OpenCode</span>
+        <span class="cli-chip">Codex</span>
+        <span class="cli-chip">+ more</span>
+      </div>
+    </div>
+    <div class="author-block">
+      <div class="author-name">Naufaldi Athallah Rifqi</div>
+      <div class="author-meta">naufalrifqi1602@gmail.com</div>
+      <div class="npm-badge">
+        <span>📦</span>
+        npm install -g android-vitals-mcp
+      </div>
+      <div style="margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted);">
+        npmjs.com/package/android-vitals-mcp
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  /* animate the hero metric numbers on load */
+  document.querySelectorAll('.hero-metric-num').forEach(el => {
+    const target = parseInt(el.textContent) || 0;
+    if (!target) return;
+    let start = 0;
+    const dur = 800;
+    const step = timestamp => {
+      if (!start) start = timestamp;
+      const p = Math.min((timestamp - start) / dur, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = (el.textContent.includes('+') ? Math.round(ease * target) + '+' : Math.round(ease * target));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+</script>
+
+</body>
+</html>
