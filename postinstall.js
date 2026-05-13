@@ -23,24 +23,16 @@ const msg = `
 ${banner}
 ╚══════════════════════════════════════════════════════════╝
 
-Two surfaces ship with this package:
+Get started in two commands:
 
-  1. MCP server:
-       npx android-vitals-mcp
+  1. Connect your Google Play Console:
+       npx android-vitals-mcp-setup
 
-  2. "Improve Android Vitals" skills (Claude Code, Gemini,
-     Codex, Copilot, Cursor, Cline, Kiro, …):
+  2. Install the skill playbooks into every detected AI CLI:
        npx android-vitals-install-skills
 
-The skills installer is opt-in — run it once to drop four
-skills into every detected AI CLI's skills directory:
-
-  - improve-android-crash-rate
-  - improve-android-anr
-  - improve-android-slow-rendering
-  - improve-android-startup-time
-
-Then ask your agent: "improve my Android crash rate".
+Then restart your AI CLI and ask:
+  "improve my Android crash rate"
 
 `;
 

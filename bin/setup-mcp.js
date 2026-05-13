@@ -68,14 +68,14 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`android-vitals-setup
+  console.log(`android-vitals-mcp-setup
 
 Registers the android-vitals MCP server in every detected AI CLI config file.
 Prompts for your Google Service Account key path and Android package name,
 then writes the "android-vitals" entry under mcpServers in each config.
 
 Usage:
-  android-vitals-setup [options]
+  android-vitals-mcp-setup [options]
 
 Options:
   --dry-run, -n        Preview changes without writing files

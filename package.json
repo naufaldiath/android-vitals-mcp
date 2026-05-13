@@ -1,13 +1,13 @@
 {
   "name": "android-vitals-mcp",
-  "version": "1.4.0",
-  "description": "MCP server + skills for Android Vitals. Now with Perfetto MCP & Android CLI integration for automated startup trace analysis.",
+  "version": "1.4.1",
+  "description": "Android Vitals for AI agents: run npx android-vitals-mcp-setup to connect your Play Console, then npx android-vitals-install-skills to get crash/ANR/rendering/startup playbooks in every AI CLI.",
   "main": "index.js",
   "type": "module",
   "bin": {
     "android-vitals-mcp": "index.js",
     "android-vitals-install-skills": "bin/install-skills.js",
-    "android-vitals-setup": "bin/setup-mcp.js"
+    "android-vitals-mcp-setup": "bin/setup-mcp.js"
   },
   "files": [
     "index.js",
