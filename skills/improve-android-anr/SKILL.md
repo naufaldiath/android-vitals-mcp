@@ -83,6 +83,25 @@ Reading the response:
 - If only weekend windows spike, suspect a feature only used heavily
   off-hours (run different `days` windows to confirm).
 
+### Find the ANRs behind the rate
+
+```
+search_error_issues(type="ANR", userPerceivedOnly=true, versionCodes=["<worst>"])
+```
+
+Each issue has an `issueId`, `cause` and `location` (read both — the API
+can return them the other way round from Google's docs: one holds the ANR
+type such as "Input dispatching timed out", the other the blocking frame
+or activity), affected users and their share, and Google's own insight
+annotations when it has them. Pull the ANR dump for the top issues:
+
+```
+get_error_reports(issueId="<issueId>", limit=3)
+```
+
+The `"main"` thread's stack in the dump shows where it blocked. Dumps are
+long; raise `maxChars` if the main thread is cut off.
+
 ANRs are almost always main-thread blocking. The reference you load
 depends on *where* the block happens.
 
@@ -95,9 +114,10 @@ depends on *where* the block happens.
 | `BroadcastReceiver.onReceive` or `Service` runs too long | [references/receivers-services.md](references/receivers-services.md) |
 | Confirming a fix, repro-ing locally, or reading ANR exit-info traces | [references/profiling.md](references/profiling.md) |
 
-Read **only** the reference that matches the suspected surface. If the
-ANR exit-info trace is available, start with `profiling.md` to read
-the trace, *then* load the surface-specific reference.
+Read **only** the reference that matches the suspected surface — the
+main-thread stack from `get_error_reports` usually tells you which. If
+it doesn't, start with `profiling.md` to read the trace, *then* load
+the surface-specific reference.
 
 ## Step 4 — Verify the fix
 
@@ -115,6 +135,8 @@ the trace, *then* load the surface-specific reference.
    `…28dUserWeighted` against the 0.47 % bar, plus the worst `versionCode`.
 2. **Evidence** — table: `versionCode | apiLevel | userPerceivedAnrRate |
    anrRate | avgDailyUsers`.
-3. **Diagnosis** — which reference you loaded and why.
-4. **Action items** — 2–4 concrete steps, ideally including one CI /
+3. **Top issues** — `issueId | ANR type | blocking frame | users (share)`
+   for the top 3.
+4. **Diagnosis** — which reference you loaded and why.
+5. **Action items** — 2–4 concrete steps, ideally including one CI /
    profiling lock-in.

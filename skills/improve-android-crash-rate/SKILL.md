@@ -88,6 +88,27 @@ Reading the response:
 - If `overall` is below 1.09 % and the trend is flat, tell the user the
   metric looks healthy.
 
+### Find the issues behind the rate
+
+Rates say *which build*; error issues say *which code*:
+
+```
+search_error_issues(type="CRASH", userPerceivedOnly=true, versionCodes=["<worst>"])
+```
+
+Each issue has an `issueId`, `cause` and `location` (read both — the API
+can return them the other way round from Google's docs), affected users
+and their share, and the first / last `versionCode` it appeared in. An
+issue whose first `versionCode` is the regressed build is new in that
+build. Then pull stack traces for the top one or two:
+
+```
+get_error_reports(issueId="<issueId>", limit=3)
+```
+
+`get_error_counts(dimensions=["issueId"], reportType="CRASH")` shows
+whether an issue is growing day by day.
+
 ## Step 3 — Remediate
 
 Pick the playbook that matches the dominant signal from Step 2 and load the
@@ -97,7 +118,7 @@ matching reference:
 |---|---|
 | A specific recent `versionCode` regressed | [references/version-regression.md](references/version-regression.md) |
 | Crashes concentrated on one `apiLevel` (OS version) | [references/api-level-issues.md](references/api-level-issues.md) |
-| Native signal: tombstones / `SIGSEGV` in Crashlytics, a native dependency bump, or API 35 concentration | [references/native-crashes.md](references/native-crashes.md) |
+| Native signal: tombstones / `SIGSEGV` in `get_error_reports` or Crashlytics, a native dependency bump, or API 35 concentration | [references/native-crashes.md](references/native-crashes.md) |
 | No clear hotspot — broad triage / general hardening | [references/general-hardening.md](references/general-hardening.md) |
 
 Read **only** the reference that matches the dominant signal. If you've ruled
@@ -119,5 +140,7 @@ After the user ships a fix:
    `versionCode`.
 2. **Evidence** — small table: `versionCode | userPerceivedCrashRate |
    crashRate | avgDailyUsers` for the top 3–5 offending groups.
-3. **Diagnosis** — which reference you loaded and why.
-4. **Action items** — 2–4 concrete next steps.
+3. **Top issues** — `issueId | cause / location | users (share) |
+   first–last versionCode` for the top 3, with the key stack frame.
+4. **Diagnosis** — which reference you loaded and why.
+5. **Action items** — 2–4 concrete next steps.
