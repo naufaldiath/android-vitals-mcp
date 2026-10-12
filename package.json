@@ -1,6 +1,6 @@
 {
   "name": "android-vitals-mcp",
-  "version": "1.4.3",
+  "version": "2.0.0",
   "description": "Android Vitals for AI agents: run npx android-vitals-mcp setup to connect your Play Console, then npx android-vitals-install-skills to get crash/ANR/rendering/startup playbooks in every AI CLI.",
   "main": "index.js",
   "type": "module",
