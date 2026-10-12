@@ -23,14 +23,28 @@ const missing = [
   !PACKAGE_NAME         && "ANDROID_PACKAGE_NAME",
 ].filter(Boolean);
 
-// Lazy-initialized API client — only created when env vars are present
-let reporting = null;
+// Lazy-initialized auth — only created when env vars are present
+let auth = null;
 if (SERVICE_ACCOUNT_FILE && PACKAGE_NAME) {
-  const auth = new google.auth.GoogleAuth({
+  auth = new google.auth.GoogleAuth({
     keyFile: SERVICE_ACCOUNT_FILE,
     scopes: ["https://www.googleapis.com/auth/playdeveloperreporting"],
   });
-  reporting = google.playdeveloperreporting({ version: "v1beta1", auth });
+}
+
+// Calls the REST API directly: the bundled googleapis client has no methods for
+// newer metric sets (LMK, memory). Queries are read-only, so POSTs are retried too.
+const API_ROOT = "https://playdeveloperreporting.googleapis.com/v1beta1";
+async function apiRequest(path, { method = "GET", params, data } = {}) {
+  const client = await auth.getClient();
+  const response = await client.request({
+    url: `${API_ROOT}/${path}`,
+    method,
+    params,
+    data,
+    retryConfig: { retry: 2, httpMethodsToRetry: ["GET", "POST"] },
+  });
+  return response.data;
 }
 
 const CONFIG_HINT = `\
@@ -86,7 +100,6 @@ const TOOLS = {
       "Fetches Android vitals crash rates from Google Play: user-perceived crash rate (daily, " +
       "7-day and 28-day user-weighted — the rate Play's bad-behavior threshold applies to), " +
       "plain crashRate (includes background crashes), and distinctUsers.",
-    resource: "crashrate",
     metricSet: "crashRateMetricSet",
     metrics: [
       "userPerceivedCrashRate", "userPerceivedCrashRate7dUserWeighted",
@@ -99,7 +112,6 @@ const TOOLS = {
       "Fetches Android vitals ANR rates from Google Play: user-perceived ANR rate (daily, " +
       "7-day and 28-day user-weighted — the rate Play's bad-behavior threshold applies to), " +
       "plain anrRate (includes background ANRs), and distinctUsers.",
-    resource: "anrrate",
     metricSet: "anrRateMetricSet",
     metrics: [
       "userPerceivedAnrRate", "userPerceivedAnrRate7dUserWeighted",
@@ -111,7 +123,6 @@ const TOOLS = {
     description:
       "Fetches slow rendering (jank) rates at the 20 fps and 30 fps thresholds. Google Play " +
       "only exposes this metric set for games; other apps get an explanatory error.",
-    resource: "slowrenderingrate",
     metricSet: "slowRenderingRateMetricSet",
     metrics: ["slowRenderingRate20Fps", "slowRenderingRate30Fps", "distinctUsers"],
     requiredDimensions: [],
@@ -120,7 +131,6 @@ const TOOLS = {
     description:
       "Fetches slow app start rates per startType (COLD / WARM / HOT): daily, 7-day and " +
       "28-day user-weighted slowStartRate, and distinctUsers.",
-    resource: "slowstartrate",
     metricSet: "slowStartRateMetricSet",
     metrics: ["slowStartRate", "slowStartRate7dUserWeighted", "slowStartRate28dUserWeighted", "distinctUsers"],
     requiredDimensions: ["startType"],
@@ -254,9 +264,9 @@ async function queryAllPages(tool, requestBody) {
   const rows = [];
   let pageToken;
   for (let page = 0; page < MAX_PAGES; page++) {
-    const { data } = await reporting.vitals[tool.resource].query({
-      name: `apps/${PACKAGE_NAME}/${tool.metricSet}`,
-      requestBody: { ...requestBody, pageSize: PAGE_SIZE, pageToken },
+    const data = await apiRequest(`apps/${PACKAGE_NAME}/${tool.metricSet}:query`, {
+      method: "POST",
+      data: { ...requestBody, pageSize: PAGE_SIZE, pageToken },
     });
     rows.push(...(data.rows ?? []));
     pageToken = data.nextPageToken;
