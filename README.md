@@ -50,25 +50,37 @@ npx android-vitals-install-skills --cli claude     # only Claude Code
 
 ### Skills
 
-Each skill auto-activates on relevant keywords, fetches live metrics from Google Play, interprets Google's "core technical quality" thresholds, and walks your agent through Android-specific remediations.
+Each skill auto-activates on relevant keywords, fetches live metrics from Google Play, compares them with Google Play's bad-behavior thresholds where Google publishes one (user-perceived crash and ANR rate), and walks your agent through Android-specific remediations.
 
 | Skill | Triggers on | Metrics fetched |
 |---|---|---|
-| `improve-android-crash-rate` | "crash rate", "improve crashes", "crash-free users" | crash rate, error report count, distinct users |
-| `improve-android-anr` | "ANR", "app not responding", "main-thread freeze" | ANR rate, 7-day user-weighted ANR rate |
-| `improve-android-slow-rendering` | "jank", "slow rendering", "dropped frames" | slow rendering rates at 20 fps and 30 fps |
+| `improve-android-crash-rate` | "crash rate", "improve crashes", "crash-free users" | user-perceived crash rate (daily, 7-day, 28-day), crash rate, distinct users |
+| `improve-android-anr` | "ANR", "app not responding", "main-thread freeze" | user-perceived ANR rate (daily, 7-day, 28-day), ANR rate, distinct users |
+| `improve-android-slow-rendering` | "jank", "slow rendering", "dropped frames" | slow rendering rates at 20 fps and 30 fps (games only) |
 | `improve-android-startup-time` | "cold start", "TTID", "improve startup" | slow start rate by `startType` (COLD / WARM / HOT) |
 
 ### Available MCP tools
 
-All tools accept an optional `days` argument (default `7`) and are called automatically by the skills above.
+The skills above call these automatically. Each returns a compact summary: app-wide figures (`overall`) plus the top groups (`breakdown`, one per `versionCode` by default), with rates as percentages.
 
 | Tool | Returns |
 |---|---|
-| `get_crash_metrics` | crash rate, error report count, distinct users affected |
-| `get_anr_metrics` | ANR rate, 7-day user-weighted ANR rate, distinct users |
-| `get_slow_rendering_metrics` | slow rendering rates at the 20 fps and 30 fps thresholds |
-| `get_startup_time_metrics` | slow start rate, dimensioned by `startType` |
+| `get_crash_metrics` | user-perceived crash rate (daily / 7d / 28d), crash rate, distinct users |
+| `get_anr_metrics` | user-perceived ANR rate (daily / 7d / 28d), ANR rate, distinct users |
+| `get_slow_rendering_metrics` | slow rendering rates at 20 fps and 30 fps, distinct users. **Google Play exposes this only for games**; other apps get an explanatory error. |
+| `get_startup_time_metrics` | slow start rate (daily / 7d / 28d) per `startType`, distinct users |
+
+Optional arguments (all tools):
+
+| Argument | Default | Purpose |
+|---|---|---|
+| `days` | `7` | Window length, ending 2 days ago (Play data lags). |
+| `dimensions` | `["versionCode"]` | Breakdown, e.g. `["versionCode", "apiLevel"]` or `["deviceModel"]`; `[]` for overall figures only. |
+| `versionCodes` | — | Only these builds, e.g. `["123", "124"]`. |
+| `apiLevels` | — | Only these Android API levels, e.g. `["34", "35"]`. |
+| `limit` | `10` | Maximum groups in `breakdown`, ranked by average daily users. |
+| `format` | `"summary"` | `"raw"` returns every daily API row as fractions (0–1) — large; for debugging. |
+| `startType` | — | `get_startup_time_metrics` only: `COLD`, `WARM` or `HOT`. |
 
 ---
 

@@ -36,7 +36,7 @@ The service account must have `playdeveloperreporting` API scope and "View app i
 The package is ESM (`"type": "module"`). Runtime entrypoints:
 
 ```
-index.js                    # MCP server (unchanged from 1.0.x)
+index.js                    # MCP server: 4 table-driven tools over the Reporting API
 bin/install-skills.js       # Skills installer CLI (#!/usr/bin/env node)
 postinstall.js              # Post-install banner only — no FS writes
 lib/ai-clis.js              # Canonical list of AI-CLI skills directories
@@ -49,10 +49,14 @@ skills/<skill-name>/SKILL.md # 4 bundled skill payloads
 1. Authenticates via `google.auth.GoogleAuth` using the service account key file.
 2. Registers two handlers on the `Server` instance:
    - `ListToolsRequestSchema` — returns the 4 tool definitions
-   - `CallToolRequestSchema` — dispatches to the correct `reporting.vitals.*` API call
+   - `CallToolRequestSchema` — validates arguments, builds the AIP-160 `filter`, queries `reporting.vitals.*` (following `nextPageToken`), and returns a summary
 3. Starts a `StdioServerTransport`.
 
 **`getTimeRange(days)`** — builds UTC-aligned start/end times. It subtracts 2 days from today before computing the range to account for Google Play's data freshness delay.
+
+**Summary output** — each call runs two queries: one with no breakdown (the `overall` headline — summing per-group rows would double-count users) and one with the requested `dimensions` (`breakdown`, ranked by average daily `distinctUsers`, capped by `limit`). Rates are converted to percentages. `format: "raw"` skips summarizing and returns the API rows (fractions).
+
+**Input validation** — `versionCodes` / `apiLevels` must be integers and `startType` one of COLD/WARM/HOT, because they are interpolated into the AIP-160 filter string. Dimensions are whitelisted to `BREAKDOWN_DIMENSIONS`.
 
 ### Skills installer (`bin/install-skills.js`)
 
@@ -73,16 +77,20 @@ Banner-only. Skipped on `CI`. Writes to `/dev/tty` first, falls back to stderr. 
 
 ## Exposed Tools
 
-All tools accept an optional `days` argument (default: `7`) and return raw JSON from the API.
+All tools accept optional `days` (default `7`), `dimensions` (default `["versionCode"]`), `versionCodes`, `apiLevels`, `limit` (default `10`) and `format` (`summary` | `raw`); startup also accepts `startType`. See `TOOLS` in `index.js`.
 
 | Tool | API endpoint | Metrics |
 |---|---|---|
-| `get_crash_metrics` | `crashRateMetricSet` | `crashRate`, `errorReportCount`, `distinctUsers` |
-| `get_anr_metrics` | `anrRateMetricSet` | `anrRate`, `anrRate7dUserWeighted`, `distinctUsers` |
-| `get_slow_rendering_metrics` | `slowRenderingRateMetricSet` | `slowRenderingRate20Fps`, `slowRenderingRate30Fps` |
-| `get_startup_time_metrics` | `slowStartRateMetricSet` | `slowStartRate` (also dimensions on `startType`) |
+| `get_crash_metrics` | `crashRateMetricSet` | `userPerceivedCrashRate` (+ `7dUserWeighted`, `28dUserWeighted`), `crashRate`, `distinctUsers` |
+| `get_anr_metrics` | `anrRateMetricSet` | `userPerceivedAnrRate` (+ `7dUserWeighted`, `28dUserWeighted`), `anrRate`, `distinctUsers` |
+| `get_slow_rendering_metrics` | `slowRenderingRateMetricSet` | `slowRenderingRate20Fps`, `slowRenderingRate30Fps`, `distinctUsers` |
+| `get_startup_time_metrics` | `slowStartRateMetricSet` | `slowStartRate` (+ `7dUserWeighted`, `28dUserWeighted`), `distinctUsers` |
 
-All tools dimension by `apiLevel` and `versionCode`; startup additionally dimensions by `startType`.
+API constraints worth knowing:
+- `crashRateMetricSet` has no `errorReportCount`; requesting it fails the whole query.
+- `slowStartRateMetricSet` rejects any query without the `startType` dimension, so startup always includes it.
+- `slowRenderingRateMetricSet` returns "only accessible to games" for non-game apps; the server turns that into an explanatory error.
+- Google Play's bad-behavior thresholds (1.09 % crash, 0.47 % ANR overall; 8 % per phone model) apply to the `userPerceived*` metrics, not the plain rates.
 
 ## Service Account Key
 
