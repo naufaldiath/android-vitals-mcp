@@ -708,7 +708,8 @@ async function searchErrorIssues(args) {
   if (!ERROR_ORDER_FIELDS.includes(orderField)) {
     throw new InputError(`"orderBy" must be one of ${ERROR_ORDER_FIELDS.join(", ")}, got ${JSON.stringify(args.orderBy)}.`);
   }
-  const limit = cappedInt(args.limit, 10, 1000, "limit");
+  // About 1 KB per issue: the API allows 1000, which would flood the agent's context.
+  const limit = cappedInt(args.limit, 10, 100, "limit");
   const includeSampleReport = booleanArg(args.includeSampleReport, "includeSampleReport");
 
   const { params, window } = errorInterval(filters.days);
@@ -930,7 +931,7 @@ const ENDPOINT_TOOLS = {
       properties: {
         ...ERROR_FILTER_PROPERTIES,
         orderBy: { type: "string", enum: ERROR_ORDER_FIELDS, default: "distinctUsers", description: "Rank by affected users or by report count (descending)." },
-        limit: { type: "integer", minimum: 1, maximum: 1000, default: 10, description: "Maximum issues returned." },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 10, description: "Maximum issues returned (about 1 KB each; capped at 100)." },
         includeSampleReport: { type: "boolean", default: false, description: "Add one sample reportId per issue." },
       },
     },
