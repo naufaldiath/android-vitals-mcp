@@ -117,7 +117,7 @@ The fastest decode is the one you don't do.
 ## 6. Verify
 
 After shipping:
-- `get_slow_rendering_metrics(days=3)` — confirm the new
+- Games only: `get_slow_rendering_metrics(days=3)` — confirm the new
   `versionCode` improved both 20fps and 30fps rates on the affected
   screen's typical sessions.
 - Macrobenchmark the affected screen's scroll flow with

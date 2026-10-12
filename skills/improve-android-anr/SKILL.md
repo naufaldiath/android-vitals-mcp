@@ -33,11 +33,26 @@ for crashes that surface as ANRs (start with
 get_anr_metrics(days=7)
 ```
 
-Each row is dimensioned by `apiLevel` and `versionCode`, with metrics:
-- `anrRate` — daily user-perceived ANR rate.
-- `anrRate7dUserWeighted` — 7-day user-weighted view (the metric Play
-  Console actually shows).
-- `distinctUsers`.
+The response is a compact summary. **All rates are percentages.**
+- `overall` — app-wide figures. Lead with these.
+- `breakdown.groups` — the top groups (one per `versionCode` by default),
+  ranked by `avgDailyUsers`; `groupsTotal` says how many exist.
+
+Each entry carries `latest` (most recent day) and `windowAvg` (daily rate
+averaged over the window, weighted by users) for:
+- `userPerceivedAnrRate` — ANRs of the "Input dispatching" type, i.e. the
+  app ignored user input. **Play's thresholds apply to this metric.**
+- `userPerceivedAnrRate7dUserWeighted` / `…28dUserWeighted` — Play's
+  rolling averages (in `latest` only).
+- `anrRate` — every ANR, including broadcast / service timeouts.
+- `avgDailyUsers` — average daily distinct users (rounded by Google).
+
+Drill down with arguments instead of re-reading raw data:
+- `dimensions=["versionCode","apiLevel"]` — OS-specific regressions per build.
+- `versionCodes=["<latest>","<previous>"]` — compare specific builds.
+- `dimensions=["deviceModel"]` — per-device hotspots (the 8 % bar below).
+- `format="raw"` returns every daily row as fractions (0–1). It is large;
+  use it only to debug.
 
 If the call fails: same diagnosis as crash-rate — verify
 `GOOGLE_APPLICATION_CREDENTIALS` and Play Console permissions before
@@ -45,20 +60,25 @@ assuming a code problem.
 
 ## Step 2 — Interpret thresholds
 
-Google Play "core technical quality" thresholds for **user-perceived ANR
-rate**:
+Google Play's bad-behavior thresholds apply to the **user-perceived** ANR
+rate. Above them, Play may reduce the app's visibility.
 
-| Threshold     | Meaning                                       |
-|---------------|-----------------------------------------------|
-| `< 0.47 %`    | Healthy.                                      |
-| `≥ 0.47 %`    | "Bad behavior" — Play may reduce visibility.  |
-| `≥ 8 %`       | Core technical-quality bar failure.           |
+| Scope                                  | Bad-behavior threshold |
+|----------------------------------------|------------------------|
+| Overall (average across all devices)   | `≥ 0.47 %`             |
+| Any single phone model                 | `≥ 8 %`                |
 
 Reading the response:
-- **Quote `anrRate7dUserWeighted` first** — that's the metric Play uses
-  for visibility decisions.
-- Sort rows by `versionCode` desc to find the build that stepped up.
-- A spike that clusters on one `apiLevel` likely reflects a behavior
+- **Quote `overall.latest.userPerceivedAnrRate7dUserWeighted` and
+  `…28dUserWeighted` first**, against 0.47 %. Never compare plain
+  `anrRate` to these thresholds.
+- Compare `breakdown.groups` by `versionCode` to find the build that
+  stepped up.
+- `anrRate` well above `userPerceivedAnrRate` ⇒ many non-input ANRs
+  (`BroadcastReceiver` / `Service` timeouts) — point at
+  `receivers-services.md`.
+- A spike that clusters on one `apiLevel` (re-query with
+  `dimensions=["versionCode","apiLevel"]`) likely reflects a behavior
   change on that OS version.
 - If only weekend windows spike, suspect a feature only used heavily
   off-hours (run different `days` windows to confirm).
@@ -83,18 +103,18 @@ the trace, *then* load the surface-specific reference.
 
 1. Wait ~24 h after rolling out (the MCP already accounts for the 2-day
    API delay).
-2. Re-call `get_anr_metrics(days=3)`. Filter mentally to the fixed
-   `versionCode`.
-3. Expect both `anrRate` and `anrRate7dUserWeighted` below 0.47 %.
+2. Re-call `get_anr_metrics(days=3, versionCodes=["<new>","<previous>"])`.
+3. Expect the new `versionCode`'s `userPerceivedAnrRate` below 0.47 %. The
+   7d / 28d averages lag — they only settle once the new build dominates.
 4. If you added Macrobenchmark coverage, lock in the result as the new
    baseline so the next regression fails CI.
 
 ## Output format
 
-1. **Headline** — `anrRate7dUserWeighted` against the 0.47 % bar plus
-   the worst `versionCode`.
-2. **Evidence** — table: `versionCode | apiLevel | anrRate |
-   anrRate7dUserWeighted | users`.
+1. **Headline** — overall `userPerceivedAnrRate7dUserWeighted` /
+   `…28dUserWeighted` against the 0.47 % bar, plus the worst `versionCode`.
+2. **Evidence** — table: `versionCode | apiLevel | userPerceivedAnrRate |
+   anrRate | avgDailyUsers`.
 3. **Diagnosis** — which reference you loaded and why.
 4. **Action items** — 2–4 concrete steps, ideally including one CI /
    profiling lock-in.

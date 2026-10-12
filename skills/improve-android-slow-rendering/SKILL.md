@@ -5,8 +5,8 @@ description: >
   android-vitals MCP. Auto-activates when the user mentions: jank, slow
   rendering, dropped frames, "frozen frames", 30fps / 20fps slow frames,
   "scrolling is laggy", or asks why their UI feels janky. Calls
-  get_slow_rendering_metrics, interprets thresholds, identifies regressed
-  versionCode / apiLevel, and walks through Compose / View remediations.
+  get_slow_rendering_metrics, identifies regressed versionCode / apiLevel,
+  and walks through Compose / View remediations.
 ---
 
 # Improve Android Slow Rendering
@@ -32,22 +32,34 @@ trigger ANRs (use `improve-android-anr`).
 get_slow_rendering_metrics(days=7)
 ```
 
-Each row is dimensioned by `apiLevel` and `versionCode`, with metrics:
-- `slowRenderingRate20Fps` — fraction of sessions where > 0.1 % of
-  frames rendered slower than 50 ms (20 fps). These are "frozen"
-  frames.
-- `slowRenderingRate30Fps` — fraction of sessions where > 0.1 % of
-  frames rendered slower than 33 ms (30 fps). These are "janky"
-  frames.
+**Games only.** Google Play's Reporting API exposes slow-rendering data
+only for apps categorized as games. For any other app the tool returns an
+error saying the metric set is "only accessible to games". When that
+happens:
+- Tell the user production jank data isn't available through the API for
+  their app, and that Play Console → Android vitals is the place to look.
+- Skip Step 2 and go straight to Step 3, using
+  [references/frame-profiling.md](references/frame-profiling.md) to measure
+  jank locally first.
 
-## Step 2 — Interpret thresholds
+When data comes back, the response is a compact summary. **All rates are
+percentages.** `overall` holds the app-wide figures; `breakdown.groups` the
+top groups (one per `versionCode` by default), ranked by `avgDailyUsers`.
+Each entry carries `latest` (most recent day) and `windowAvg` (user-weighted
+average over the window) for:
+- `slowRenderingRate20Fps` — percentage of users who had slow rendering
+  below 20 fps ("frozen" frames).
+- `slowRenderingRate30Fps` — percentage of users who had slow rendering
+  below 30 fps ("janky" frames).
 
-Google Play "core technical quality" thresholds:
+Drill down with `dimensions=["versionCode","apiLevel"]` or
+`versionCodes=["<latest>","<previous>"]`.
 
-| Metric                                            | Bad-behavior threshold |
-|---------------------------------------------------|------------------------|
-| `slowRenderingRate30Fps` (janky frames)           | `≥ 25 %`               |
-| `slowRenderingRate20Fps` (frozen frames)          | `≥ 5 %`                |
+## Step 2 — Interpret the data
+
+Google lists slow rendering as an "other" Android vitals metric — not a
+core vital — and publishes no bad-behavior threshold for it. Judge it by
+trend and by comparison between builds, not against a fixed bar.
 
 Reading the data:
 - **30 fps spike without 20 fps spike** ⇒ sustained over-budget work
@@ -66,7 +78,7 @@ Reading the data:
 | UI is Jetpack Compose | [references/compose-jank.md](references/compose-jank.md) |
 | UI is classic Views / `RecyclerView` | [references/views-jank.md](references/views-jank.md) |
 | Image decoding suspected (lists with thumbnails, banners) | [references/image-pipeline.md](references/image-pipeline.md) |
-| Confirming a fix or capturing telemetry | [references/frame-profiling.md](references/frame-profiling.md) |
+| Confirming a fix, capturing telemetry, or no production data (non-game app) | [references/frame-profiling.md](references/frame-profiling.md) |
 
 Read **only** the reference that matches the suspected surface. If
 the app uses both Compose and Views, identify which screen is
@@ -76,19 +88,21 @@ reference.
 ## Step 4 — Verify the fix
 
 1. Wait ~24 h after rollout.
-2. Re-call `get_slow_rendering_metrics(days=3)`.
-3. Confirm both `slowRenderingRate30Fps < 25 %` and
-   `slowRenderingRate20Fps < 5 %` for the new `versionCode`.
-4. Lock in a Macrobenchmark `FrameTimingMetric` baseline so the next
+2. Games: re-call
+   `get_slow_rendering_metrics(days=3, versionCodes=["<new>","<previous>"])`
+   and confirm both rates dropped on the new `versionCode`.
+   Other apps: compare local before/after Macrobenchmark numbers instead.
+3. Lock in a Macrobenchmark `FrameTimingMetric` baseline so the next
    regression fails CI.
 
 ## Output format
 
-1. **Headline** — state of jank vs the 5 % / 25 % bars on the worst
-   `versionCode`, plus whether the dominant problem is "janky" or
-   "frozen" frames.
+1. **Headline** — whether production data was available; if so, the
+   jank trend on the worst `versionCode` and whether the dominant problem
+   is "janky" or "frozen" frames.
 2. **Evidence** — table: `versionCode | apiLevel |
-   slowRenderingRate30Fps | slowRenderingRate20Fps`.
+   slowRenderingRate30Fps | slowRenderingRate20Fps`, or the local
+   profiling numbers when the API isn't available.
 3. **Diagnosis** — which reference you loaded and why.
 4. **Action items** — 2–4 concrete steps including at least one CI /
    profiling lock-in.

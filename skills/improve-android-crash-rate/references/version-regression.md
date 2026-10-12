@@ -1,7 +1,7 @@
 # Version Regression Playbook
 
 Load this when a specific recent `versionCode` is responsible for the spike
-in `crashRate` — typically the latest one or two builds shipped to
+in `userPerceivedCrashRate` — typically the latest one or two builds shipped to
 production, with a noticeably worse rate than the build before them.
 
 ## 1. Pull stack traces for the regressed build
@@ -50,9 +50,9 @@ Once you know the cause, the user has three options. Recommend by severity:
 
 | Severity | Recommended action |
 |---|---|
-| `crashRate ≥ 8 %` (core failure) | **Halt the staged rollout** in Play Console immediately, then roll forward with a hotfix `versionCode`. |
-| `crashRate ≥ 1.09 %` (bad behavior) | **Pause the staged rollout** at its current percentage, ship a hotfix in the next 48 h. |
-| `crashRate < 1.09 %` but trending up | Let the rollout continue, fix in the next regular release. Watch the next data refresh closely. |
+| `userPerceivedCrashRate ≥ 8 %` on the build (severe — Play's per-phone-model bar) | **Halt the staged rollout** in Play Console immediately, then roll forward with a hotfix `versionCode`. |
+| `userPerceivedCrashRate ≥ 1.09 %` (Play's overall bad-behavior bar) | **Pause the staged rollout** at its current percentage, ship a hotfix in the next 48 h. |
+| `userPerceivedCrashRate < 1.09 %` but trending up | Let the rollout continue, fix in the next regular release. Watch the next data refresh closely. |
 
 A "hotfix `versionCode`" means: bump only the patch + `versionCode`, ship a
 release with the minimal diff that reverts or fixes the crash. Avoid
@@ -60,9 +60,10 @@ bundling unrelated work — that's how regressions get reintroduced.
 
 ## 4. After shipping the hotfix
 
-- Re-call `get_crash_metrics(days=3)` 24 h after the hotfix is live.
-- Confirm the new `versionCode`'s `crashRate < 1.09 %`.
-- Confirm `distinctUsers` on the regressed build is decaying (Play migrates
+- Re-call `get_crash_metrics(days=3, versionCodes=["<hotfix>","<regressed>"])`
+  24 h after the hotfix is live.
+- Confirm the new `versionCode`'s `userPerceivedCrashRate < 1.09 %`.
+- Confirm `avgDailyUsers` on the regressed build is decaying (Play migrates
   users to the latest available version).
 - Document the root cause in your release notes / postmortem so the
   dependency or rule change isn't reintroduced silently.

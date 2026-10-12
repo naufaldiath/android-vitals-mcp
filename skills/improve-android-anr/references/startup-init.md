@@ -117,8 +117,8 @@ Replacements:
 ## 6. Verify
 
 After deploying:
-- `get_anr_metrics(days=3)` should show the new `versionCode`'s
-  `anrRate7dUserWeighted < 0.47 %`.
+- `get_anr_metrics(days=3, versionCodes=["<new>"])` should show the new
+  `versionCode`'s `userPerceivedAnrRate < 0.47 %`.
 - Macrobenchmark with `StartupMode.COLD` should show TTID improved (or
   at least not regressed).
 - Locally, run `adb shell am start -W -S <pkg>/<.LauncherActivity>`

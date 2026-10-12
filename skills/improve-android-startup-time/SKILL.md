@@ -39,29 +39,46 @@ rendering — use `improve-android-anr` or
 get_startup_time_metrics(days=7)
 ```
 
-Each row is dimensioned by `apiLevel`, `versionCode`, **and**
-`startType`. The metric is `slowStartRate`.
+The response is a compact summary. **All rates are percentages.**
+- `overall` — one entry per `startType` (COLD, WARM, HOT), app-wide.
+- `breakdown.groups` — the top `startType` × `versionCode` groups,
+  ranked by `avgDailyUsers`; `groupsTotal` says how many exist.
 
-`startType` values and Google's "slow" thresholds:
+Each entry carries `latest` (most recent day) and `windowAvg` (user-weighted
+average over the window) for `slowStartRate` — the percentage of users who
+had a slow start — plus Play's rolling `slowStartRate7dUserWeighted` /
+`…28dUserWeighted` (in `latest` only) and `avgDailyUsers`.
+
+Narrow the query instead of re-reading raw data:
+- `startType="COLD"` — only cold starts (usually what you want).
+- `dimensions=["versionCode","apiLevel"]` — OS-specific regressions per build.
+- `versionCodes=["<latest>","<previous>"]` — compare specific builds.
+- `format="raw"` returns every daily row as fractions (0–1). It is large;
+  use it only to debug.
+
+What Android vitals counts as a "slow" start:
 
 | `startType` | "Slow" threshold | What it means |
 |---|---|---|
-| `COLD` | start > 5 s | Process not running. Expensive. **Users feel this.** |
-| `WARM` | start > 2 s | Process alive, activity recreated. |
-| `HOT`  | start > 1.5 s | Activity already there, just brought forward. |
+| `COLD` | start ≥ 5 s | Process not running. Expensive. **Users feel this.** |
+| `WARM` | start ≥ 2 s | Process alive, activity recreated. |
+| `HOT`  | start ≥ 1.5 s | Activity already there, just brought forward. |
 
-**Always read `startType=COLD` first** — that's where users notice
-and where Play visibility decisions concentrate.
+**Always read `startType=COLD` first** — that's where users notice.
 
-## Step 2 — Interpret thresholds
+## Step 2 — Interpret the data
 
-| `startType` | Bad-behavior threshold |
+Slow start is an "other" Android vitals metric, not a core vital: Google
+publishes no bad-behavior percentage for `slowStartRate`. Judge it by trend
+and by comparison between builds.
+
+| `startType` | How to read it |
 |---|---|
-| COLD | High `slowStartRate` is the most actionable target — even single-digit % matters because cold start dominates user perception. |
-| WARM / HOT | Watch for any upward trend — these are harder for users to feel but indicate broader regressions. |
+| COLD | The most actionable target — even single-digit % matters because cold start dominates user perception. |
+| WARM / HOT | Watch for any upward trend — these are harder for users to feel but indicate broader regressions. A WARM rate far above COLD often means activities are recreated with heavy `onCreate` work. |
 
 Reading the data:
-- Sort COLD rows by `versionCode` desc — find the build where the
+- Sort COLD groups by `versionCode` desc — find the build where the
   rate stepped up.
 - Older `apiLevel`s have inherently higher COLD rates (no ART JIT
   speedups); only flag if the *delta* between API levels widened
@@ -85,9 +102,9 @@ it tells you which of the other references applies.
 ## Step 4 — Verify the fix
 
 1. Wait ~24 h after rollout.
-2. Re-call `get_startup_time_metrics(days=3)` and look at the new
-   `versionCode` rows where `startType=COLD`. Expect a measurable
-   relative decrease (≥ 10 %) for a meaningful fix.
+2. Re-call
+   `get_startup_time_metrics(days=3, startType="COLD", versionCodes=["<new>","<previous>"])`.
+   Expect a measurable relative decrease (≥ 10 %) for a meaningful fix.
 3. If you added Macrobenchmark coverage, lock in the new TTID
    baseline so the next regression fails CI.
 
@@ -96,8 +113,8 @@ it tells you which of the other references applies.
 1. **Headline** — COLD `slowStartRate` for the latest `versionCode`
    and whether it improved vs the previous build.
 2. **Evidence** — table filtered to `startType=COLD`:
-   `versionCode | apiLevel | slowStartRate`. (Mention WARM / HOT
-   only if they're the dominant signal — uncommon.)
+   `versionCode | apiLevel | slowStartRate | avgDailyUsers`. (Mention
+   WARM / HOT only if they're the dominant signal.)
 3. **Diagnosis** — which reference you loaded and why.
 4. **Action items** — 2–4 concrete steps; if no Baseline Profile is
    in place, recommend adding one as item 1.

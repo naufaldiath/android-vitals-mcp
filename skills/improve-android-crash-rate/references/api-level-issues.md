@@ -2,8 +2,9 @@
 
 Load this when crashes concentrate on one `apiLevel` (Android version)
 rather than one `versionCode`. The signal: a single API level dominates
-`crashRate × distinctUsers` while other API levels look healthy on the
-same `versionCode`.
+`userPerceivedCrashRate × avgDailyUsers` while other API levels look
+healthy on the same `versionCode` (query with
+`dimensions=["versionCode","apiLevel"]`).
 
 ## 1. Identify which OS version
 
@@ -94,7 +95,8 @@ Before recommending a fix, ask the user (or check):
 
 ## 6. Verify
 
-After shipping the fix, re-check `get_crash_metrics(days=3)` and confirm
-the dominant `apiLevel`'s `crashRate` has dropped on the new
-`versionCode`. The other API levels should be unchanged — if they
+After shipping the fix, re-check
+`get_crash_metrics(days=3, dimensions=["versionCode","apiLevel"], versionCodes=["<new>"])`
+and confirm the dominant `apiLevel`'s `userPerceivedCrashRate` has dropped
+on the new `versionCode`. The other API levels should be unchanged — if they
 regressed, you broke a fallback path.

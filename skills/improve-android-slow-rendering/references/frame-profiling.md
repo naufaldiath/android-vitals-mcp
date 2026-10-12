@@ -16,7 +16,9 @@ adb shell dumpsys gfxinfo <pkg> framestats
 ```
 
 Look at:
-- **Janky frames** percentage — if > 25 % matches your Vitals signal.
+- **Janky frames** percentage — the local counterpart of the Vitals
+  30 fps rate. For non-game apps (no Reporting API data) this is your
+  primary signal; compare before/after.
 - **Profile data in ms** histogram — bumps in the higher buckets
   (16ms+, 33ms+) indicate slow draw passes.
 - **HWUI** counters — high "Sync & upload time" suggests bitmap
@@ -127,5 +129,6 @@ Wire your Macrobenchmark module to CI:
 After shipping a fix:
 - Compare local before/after Macrobenchmark numbers — expect a
   measurable p99 improvement.
-- 24 h post-rollout, re-call `get_slow_rendering_metrics(days=3)`
-  and confirm the new `versionCode`'s 20fps + 30fps rates dropped.
+- Games only: 24 h post-rollout, re-call
+  `get_slow_rendering_metrics(days=3, versionCodes=["<new>"])` and confirm
+  the new `versionCode`'s 20fps + 30fps rates dropped.

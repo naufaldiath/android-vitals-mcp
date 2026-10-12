@@ -1,8 +1,8 @@
 # Native (NDK) Crashes Playbook
 
 Load this when the data suggests native code is involved:
-- `errorReportCount` ≫ `distinctUsers` (the same users crashing
-  repeatedly — deterministic native bug),
+- Crashlytics shows the same native frame or tombstone recurring for
+  the same users (deterministic native bug),
 - crashes spike right after a native dependency bump,
 - crashes concentrate on Android 15 (API 35) — likely 16 KB page-size,
 - the user explicitly mentions C/C++/Rust, JNI, or "tombstone".

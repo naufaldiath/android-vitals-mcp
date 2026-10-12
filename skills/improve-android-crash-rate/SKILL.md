@@ -35,8 +35,27 @@ a recent regression, narrow to 1–3 if they're verifying a hotfix.
 get_crash_metrics(days=7)
 ```
 
-Each row is dimensioned by `apiLevel` and `versionCode` and carries
-`crashRate`, `errorReportCount`, and `distinctUsers`.
+The response is a compact summary. **All rates are percentages.**
+- `overall` — app-wide figures. Lead with these.
+- `breakdown.groups` — the top groups (one per `versionCode` by default),
+  ranked by `avgDailyUsers`; `groupsTotal` says how many exist.
+
+Each entry carries `latest` (most recent day) and `windowAvg` (daily rate
+averaged over the window, weighted by users) for:
+- `userPerceivedCrashRate` — crashes while the app is in active use
+  (showing an activity or running a foreground service). **Play's
+  thresholds apply to this metric.**
+- `userPerceivedCrashRate7dUserWeighted` / `…28dUserWeighted` — Play's
+  rolling averages (in `latest` only).
+- `crashRate` — every crash, including background ones.
+- `avgDailyUsers` — average daily distinct users (rounded by Google).
+
+Drill down with arguments instead of re-reading raw data:
+- `dimensions=["versionCode","apiLevel"]` — OS-specific breakage per build.
+- `versionCodes=["<latest>","<previous>"]` — compare specific builds.
+- `dimensions=["deviceModel"]` — per-device hotspots (the 8 % bar below).
+- `format="raw"` returns every daily row as fractions (0–1). It is large;
+  use it only to debug.
 
 If the call fails with auth errors: confirm `GOOGLE_APPLICATION_CREDENTIALS`
 points to a real key file and the service account has at least "View app
@@ -44,24 +63,30 @@ information (read-only)" on the Play Console. Do **not** mock the data.
 
 ## Step 2 — Interpret thresholds
 
-Google Play "core technical quality" thresholds for **user-perceived crash
-rate**:
+Google Play's bad-behavior thresholds apply to the **user-perceived** crash
+rate. Above them, Play may reduce the app's visibility.
 
-| Threshold     | Meaning                                       |
-|---------------|-----------------------------------------------|
-| `< 1.09 %`    | Healthy. No Play visibility impact.           |
-| `≥ 1.09 %`    | "Bad behavior" — Play may reduce visibility.  |
-| `≥ 8 %`       | Core technical-quality bar failure.           |
+| Scope                                  | Bad-behavior threshold |
+|----------------------------------------|------------------------|
+| Overall (average across all devices)   | `≥ 1.09 %`             |
+| Any single phone model                 | `≥ 8 %`                |
 
 Reading the response:
-- Sort rows by `versionCode` desc — a recent build that's noticeably worse
-  than the previous one is the regression candidate.
-- A single dominant `apiLevel` (very old or brand-new) signals OS-specific
-  breakage.
-- Multiply `crashRate × distinctUsers` per row to estimate users affected;
-  lead with biggest absolute impact, not highest rate.
-- If everything is below 1.09 % and trend is flat, tell the user the metric
-  looks healthy.
+- Quote `overall.latest.userPerceivedCrashRate7dUserWeighted` and
+  `…28dUserWeighted` against 1.09 %. Never compare plain `crashRate` to these
+  thresholds.
+- Compare `breakdown.groups` by `versionCode` — a recent build that's
+  noticeably worse than the previous one is the regression candidate.
+- `crashRate` well above `userPerceivedCrashRate` ⇒ background crashes
+  (services, receivers, WorkManager). Play's threshold ignores them, but
+  users still lose work.
+- A single dominant `apiLevel` (re-query with
+  `dimensions=["versionCode","apiLevel"]`) signals OS-specific breakage.
+- Multiply rate × `avgDailyUsers` per group to estimate users affected;
+  lead with biggest absolute impact, not highest rate. Groups with few
+  users are noisy.
+- If `overall` is below 1.09 % and the trend is flat, tell the user the
+  metric looks healthy.
 
 ## Step 3 — Remediate
 
@@ -72,7 +97,7 @@ matching reference:
 |---|---|
 | A specific recent `versionCode` regressed | [references/version-regression.md](references/version-regression.md) |
 | Crashes concentrated on one `apiLevel` (OS version) | [references/api-level-issues.md](references/api-level-issues.md) |
-| `errorReportCount ≫ distinctUsers` or NDK signal | [references/native-crashes.md](references/native-crashes.md) |
+| Native signal: tombstones / `SIGSEGV` in Crashlytics, a native dependency bump, or API 35 concentration | [references/native-crashes.md](references/native-crashes.md) |
 | No clear hotspot — broad triage / general hardening | [references/general-hardening.md](references/general-hardening.md) |
 
 Read **only** the reference that matches the dominant signal. If you've ruled
@@ -83,15 +108,16 @@ one playbook out, do not load it.
 After the user ships a fix:
 1. Wait at least 24 h for Play data to stabilise (the MCP already accounts
    for the 2-day API delay).
-2. Re-call `get_crash_metrics(days=3)` and look at the new `versionCode`.
-3. Confirm `crashRate < 1.09 %` and that affected `distinctUsers` on the new
-   build is near zero.
+2. Re-call `get_crash_metrics(days=3, versionCodes=["<new>","<previous>"])`.
+3. Confirm the new `versionCode`'s `userPerceivedCrashRate < 1.09 %` and
+   that `avgDailyUsers` on the regressed build is decaying.
 
 ## Output format
 
-1. **Headline** — one sentence: healthy / watch-list / bad-behavior, naming
-   the worst `versionCode`.
-2. **Evidence** — small table: `versionCode | apiLevel | crashRate | users`
-   for the top 3–5 offending rows.
+1. **Headline** — one sentence: healthy / watch-list / bad-behavior, quoting
+   the overall user-perceived 7d / 28d rate and naming the worst
+   `versionCode`.
+2. **Evidence** — small table: `versionCode | userPerceivedCrashRate |
+   crashRate | avgDailyUsers` for the top 3–5 offending groups.
 3. **Diagnosis** — which reference you loaded and why.
 4. **Action items** — 2–4 concrete next steps.

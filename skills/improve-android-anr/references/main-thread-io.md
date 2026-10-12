@@ -99,5 +99,6 @@ Before shipping:
 - Macrobenchmark with `FrameTimingMetric` on the affected flow — the
   fix should reduce p99 frame time even if the median is unchanged.
 
-After 24 h, re-check `get_anr_metrics(days=3)`. The fixed
-`versionCode` should be back below the 0.47 % bar.
+After 24 h, re-check `get_anr_metrics(days=3, versionCodes=["<fixed>"])`.
+The fixed `versionCode`'s `userPerceivedAnrRate` should be back below the
+0.47 % bar.

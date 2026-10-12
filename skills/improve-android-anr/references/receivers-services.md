@@ -88,8 +88,10 @@ use WorkManager.
 
 - Reproduce locally: send the broadcast manually with `adb shell am
   broadcast -a <action>` and check logcat for ANR lines.
-- After shipping, `get_anr_metrics(days=3)` should show the fixed
-  `versionCode`'s `anrRate` below 0.47 %.
+- After shipping, `get_anr_metrics(days=3, versionCodes=["<fixed>"])`
+  should show the fixed `versionCode`'s `anrRate` dropping. Receiver and
+  service timeouts count toward `anrRate`, not `userPerceivedAnrRate`
+  (which only covers "Input dispatching" ANRs), so watch both.
 - If the receiver is invoked rarely (e.g. boot), forcibly trigger the
   flow on test devices before relying on production data — Vitals
   data might take days to surface a fix on a low-volume receiver.
