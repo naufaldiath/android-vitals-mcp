@@ -79,69 +79,198 @@ Where to get each value:
     Your app's package ID (e.g. com.example.myapp).
     Find it in Google Play Console → All apps → select your app.`;
 
-// Breakdown dimensions every vitals metric set accepts (Play Developer Reporting API v1beta1).
+// Breakdown dimensions the rate metric sets accept (Play Developer Reporting API v1beta1).
 const BREAKDOWN_DIMENSIONS = [
   "versionCode", "apiLevel", "deviceModel", "deviceBrand", "deviceType", "countryCode",
   "deviceRamBucket", "deviceSocMake", "deviceSocModel", "deviceCpuMake", "deviceCpuModel",
   "deviceGpuMake", "deviceGpuModel", "deviceGpuVersion", "deviceVulkanVersion",
   "deviceGlEsVersion", "deviceScreenSize", "deviceScreenDpi",
 ];
+const MEMORY_DIMENSIONS = [...BREAKDOWN_DIMENSIONS, "processName", "appState"];
+// errorCountMetricSet has no countryCode / deviceBrand, but can break down by error issue.
+const ERROR_COUNT_DIMENSIONS = [
+  ...BREAKDOWN_DIMENSIONS.filter((d) => d !== "countryCode" && d !== "deviceBrand"),
+  "issueId",
+];
 const START_TYPES = ["COLD", "WARM", "HOT"];
+const REPORT_TYPES = ["CRASH", "ANR"];
+// Display order for `overall` entries split by a required dimension.
+const REQUIRED_DIMENSION_ORDER = { startType: START_TYPES, reportType: REPORT_TYPES };
 const DEFAULT_DIMENSIONS = ["versionCode"];
 const DEFAULT_LIMIT = 10;
 const PAGE_SIZE = 10000;
 const MAX_PAGES = 10;
 
-// One entry per MCP tool. `requiredDimensions` are added to every query because the
-// API rejects the metric set without them (slowStartRate needs startType).
+const rateSet = (metrics, requiredDimensions = []) =>
+  ({ kind: "rate", metrics, requiredDimensions, dimensions: BREAKDOWN_DIMENSIONS });
+const memorySet = (prefix) => ({
+  kind: "memory",
+  metrics: ["P50", "P75", "P90", "P95", "P99"].map((p) => `${prefix}${p}`).concat("distinctUsers"),
+  requiredDimensions: [],
+  dimensions: MEMORY_DIMENSIONS,
+});
+
+// `kind` decides how values are presented (see KINDS). `requiredDimensions` go into every
+// query because the API rejects the metric set without them.
+const METRIC_SETS = {
+  crashRateMetricSet: rateSet([
+    "userPerceivedCrashRate", "userPerceivedCrashRate7dUserWeighted",
+    "userPerceivedCrashRate28dUserWeighted", "crashRate", "distinctUsers",
+  ]),
+  anrRateMetricSet: rateSet([
+    "userPerceivedAnrRate", "userPerceivedAnrRate7dUserWeighted",
+    "userPerceivedAnrRate28dUserWeighted", "anrRate", "distinctUsers",
+  ]),
+  slowRenderingRateMetricSet: rateSet(["slowRenderingRate20Fps", "slowRenderingRate30Fps", "distinctUsers"]),
+  slowStartRateMetricSet: rateSet(
+    ["slowStartRate", "slowStartRate7dUserWeighted", "slowStartRate28dUserWeighted", "distinctUsers"],
+    ["startType"]
+  ),
+  lmkRateMetricSet: rateSet([
+    "userPerceivedLmkRate", "userPerceivedLmkRate7dUserWeighted",
+    "userPerceivedLmkRate28dUserWeighted", "distinctUsers",
+  ]),
+  excessiveWakeupRateMetricSet: rateSet([
+    "excessiveWakeupRate", "excessiveWakeupRate7dUserWeighted",
+    "excessiveWakeupRate28dUserWeighted", "distinctUsers",
+  ]),
+  stuckBackgroundWakelockRateMetricSet: rateSet([
+    "stuckBgWakelockRate", "stuckBgWakelockRate7dUserWeighted",
+    "stuckBgWakelockRate28dUserWeighted", "distinctUsers",
+  ]),
+  anonRssAndSwapMemoryUsageMetricSet: memorySet("anonRssAndSwapMemoryUsage"),
+  bitmapMemoryUsageMetricSet: memorySet("bitmapMemoryUsage"),
+  errorCountMetricSet: {
+    kind: "count",
+    metrics: ["errorReportCount", "distinctUsers"],
+    requiredDimensions: ["reportType"],
+    dimensions: ERROR_COUNT_DIMENSIONS,
+  },
+};
+
+const percent = (fraction) => Math.round(fraction * 100 * 1000) / 1000;
+
+const KINDS = {
+  rate: {
+    format: percent,
+    aggregate: "avg",
+    unit: { rateUnit: "percent" },
+    legend:
+      "Rates are percentages of distinct users per day (America/Los_Angeles). latest = most recent " +
+      "day in the window; *7dUserWeighted / *28dUserWeighted are Play's rolling averages as of that " +
+      "day; windowAvg = daily rate averaged across the window, weighted by distinctUsers. " +
+      "distinctUsers is rounded by Google, so groups with few users are noisy.",
+    rankedBy: "avgDailyUsers",
+    rankDescription: "average daily distinctUsers",
+    formatDescription:
+      "summary (default): overall figures plus the top groups, rates in percent. raw: every daily " +
+      "row from the API as fractions (0–1) — large; use only to debug.",
+  },
+  memory: {
+    format: Math.round,
+    aggregate: "avg",
+    unit: {
+      valueUnit:
+        "KiB (not documented by Google; read as KiB, the values match Play Console's MB figures). " +
+        "Play Console's anon RSS + swap figure tracks foreground use: compare it with the " +
+        'APP_STATE_FOREGROUND group from dimensions ["appState"]. The overall figure here also ' +
+        "covers cached and background processes, so it is lower.",
+    },
+    legend:
+      "Values are daily memory-usage percentiles (America/Los_Angeles) as returned by the API. " +
+      "latest = most recent day in the window; windowAvg = mean of the daily values over the " +
+      "window, weighted by distinctUsers (not itself a percentile). distinctUsers is rounded by " +
+      "Google, so groups with few users are noisy.",
+    rankedBy: "avgDailyUsers",
+    rankDescription: "average daily distinctUsers",
+    formatDescription:
+      "summary (default): overall figures plus the top groups. raw: every daily row from the API — " +
+      "large; use only to debug.",
+  },
+  count: {
+    format: Math.round,
+    aggregate: "sum",
+    unit: {},
+    legend:
+      "errorReportCount is the absolute number of error reports per day (America/Los_Angeles). " +
+      "latest = most recent day in the window; windowTotal = sum over the window. distinctUsers " +
+      "can't be summed across days, so avgDailyUsers is its daily average.",
+    rankedBy: "windowTotal.errorReportCount",
+    rankDescription: "total error reports in the window",
+    formatDescription:
+      "summary (default): overall figures plus the top groups. raw: every daily row from the API — " +
+      "large; use only to debug.",
+  },
+};
+
+// Metric-set tools. Every set in one tool shares a kind and its breakdown dimensions.
 const TOOLS = {
   get_crash_metrics: {
     description:
       "Fetches Android vitals crash rates from Google Play: user-perceived crash rate (daily, " +
       "7-day and 28-day user-weighted — the rate Play's bad-behavior threshold applies to), " +
       "plain crashRate (includes background crashes), and distinctUsers.",
-    metricSet: "crashRateMetricSet",
-    metrics: [
-      "userPerceivedCrashRate", "userPerceivedCrashRate7dUserWeighted",
-      "userPerceivedCrashRate28dUserWeighted", "crashRate", "distinctUsers",
-    ],
-    requiredDimensions: [],
+    metricSets: ["crashRateMetricSet"],
   },
   get_anr_metrics: {
     description:
       "Fetches Android vitals ANR rates from Google Play: user-perceived ANR rate (daily, " +
       "7-day and 28-day user-weighted — the rate Play's bad-behavior threshold applies to), " +
       "plain anrRate (includes background ANRs), and distinctUsers.",
-    metricSet: "anrRateMetricSet",
-    metrics: [
-      "userPerceivedAnrRate", "userPerceivedAnrRate7dUserWeighted",
-      "userPerceivedAnrRate28dUserWeighted", "anrRate", "distinctUsers",
-    ],
-    requiredDimensions: [],
+    metricSets: ["anrRateMetricSet"],
   },
   get_slow_rendering_metrics: {
     description:
       "Fetches slow rendering (jank) rates at the 20 fps and 30 fps thresholds. Google Play " +
       "only exposes this metric set for games; other apps get an explanatory error.",
-    metricSet: "slowRenderingRateMetricSet",
-    metrics: ["slowRenderingRate20Fps", "slowRenderingRate30Fps", "distinctUsers"],
-    requiredDimensions: [],
+    metricSets: ["slowRenderingRateMetricSet"],
   },
   get_startup_time_metrics: {
     description:
       "Fetches slow app start rates per startType (COLD / WARM / HOT): daily, 7-day and " +
       "28-day user-weighted slowStartRate, and distinctUsers.",
-    metricSet: "slowStartRateMetricSet",
-    metrics: ["slowStartRate", "slowStartRate7dUserWeighted", "slowStartRate28dUserWeighted", "distinctUsers"],
-    requiredDimensions: ["startType"],
+    metricSets: ["slowStartRateMetricSet"],
+  },
+  get_lmk_metrics: {
+    description:
+      "Fetches the user-perceived low memory kill (LMK) rate — users whose app process was killed " +
+      "for memory while in active use (showing an activity or running a foreground service): " +
+      "daily, 7-day and 28-day user-weighted, and distinctUsers.",
+    metricSets: ["lmkRateMetricSet"],
+  },
+  get_memory_metrics: {
+    description:
+      "Fetches memory usage percentiles (P50, P75, P90, P95, P99) for anonymous RSS + swap and " +
+      "for bitmaps, one section per metric set. Supports the extra breakdowns processName and " +
+      "appState.",
+    metricSets: ["anonRssAndSwapMemoryUsageMetricSet", "bitmapMemoryUsageMetricSet"],
+    dimensionsHint:
+      ' Memory also supports "processName" and "appState"; use ["appState"] to compare with ' +
+      "Play Console, whose memory figures track foreground use.",
+  },
+  get_battery_metrics: {
+    description:
+      "Fetches battery vitals, one section per metric set: excessive wakeup rate (users with more " +
+      "than 10 AlarmManager wakeups per hour) and stuck background wake lock rate (users with a " +
+      "wake lock held in the background for over 1 hour); daily, 7-day and 28-day user-weighted.",
+    metricSets: ["excessiveWakeupRateMetricSet", "stuckBackgroundWakelockRateMetricSet"],
+  },
+  get_error_counts: {
+    description:
+      "Fetches absolute error report counts and affected users per reportType (CRASH / ANR), " +
+      'summed over the window. Add "issueId" to dimensions to count per error issue (ids come ' +
+      "from search_error_issues).",
+    metricSets: ["errorCountMetricSet"],
+    dimensionsHint: ' Use ["issueId"] to count per error issue.',
   },
 };
 
-const LEGEND =
-  "Rates are percentages of distinct users per day (America/Los_Angeles). latest = most recent " +
-  "day in the window; *7dUserWeighted / *28dUserWeighted are Play's rolling averages as of that " +
-  "day; windowAvg = daily rate averaged across the window, weighted by distinctUsers. " +
-  "distinctUsers is rounded by Google, so groups with few users are noisy.";
+for (const tool of Object.values(TOOLS)) {
+  tool.sets = tool.metricSets.map((name) => ({ name, ...METRIC_SETS[name] }));
+  tool.kind = tool.sets[0].kind;
+  tool.requiredDimensions = [...new Set(tool.sets.flatMap((set) => set.requiredDimensions))];
+  tool.dimensions = tool.sets[0].dimensions.filter((d) => tool.sets.every((set) => set.dimensions.includes(d)));
+}
 
 class InputError extends Error {}
 
@@ -212,6 +341,21 @@ function numericList(value, name) {
   return list;
 }
 
+const isBlank = (value) => value === undefined || value === null || value === "";
+
+// Parses an enum argument that only applies to tools with the matching required dimension.
+function requiredDimensionValue(tool, args, name, allowed, owner) {
+  if (isBlank(args[name])) return null;
+  if (!tool.requiredDimensions.includes(name)) {
+    throw new InputError(`"${name}" only applies to ${owner}.`);
+  }
+  const value = String(args[name]).toUpperCase();
+  if (!allowed.includes(value)) {
+    throw new InputError(`"${name}" must be one of ${allowed.join(", ")}, got ${JSON.stringify(args[name])}.`);
+  }
+  return value;
+}
+
 function parseArgs(tool, args = {}) {
   const days = positiveInt(args.days, 7, "days");
   const limit = positiveInt(args.limit, DEFAULT_LIMIT, "limit");
@@ -219,52 +363,44 @@ function parseArgs(tool, args = {}) {
   // Some hosts send null for omitted optional args; only an explicit [] means "overall only".
   const dimensions = (args.dimensions == null ? DEFAULT_DIMENSIONS : toList(args.dimensions))
     .filter((d) => !tool.requiredDimensions.includes(d));
-  const unknown = dimensions.filter((d) => !BREAKDOWN_DIMENSIONS.includes(d));
+  const unknown = dimensions.filter((d) => !tool.dimensions.includes(d));
   if (unknown.length > 0) {
-    throw new InputError(`Unknown dimension(s) ${JSON.stringify(unknown)}. Valid: ${BREAKDOWN_DIMENSIONS.join(", ")}.`);
+    throw new InputError(`Unknown dimension(s) ${JSON.stringify(unknown)}. Valid: ${tool.dimensions.join(", ")}.`);
   }
 
   const versionCodes = numericList(args.versionCodes, "versionCodes");
   const apiLevels = numericList(args.apiLevels, "apiLevels");
-
-  let startType = null;
-  if (args.startType !== undefined && args.startType !== null && args.startType !== "") {
-    if (!tool.requiredDimensions.includes("startType")) {
-      throw new InputError(`"startType" only applies to get_startup_time_metrics.`);
-    }
-    startType = String(args.startType).toUpperCase();
-    if (!START_TYPES.includes(startType)) {
-      throw new InputError(`"startType" must be one of ${START_TYPES.join(", ")}, got ${JSON.stringify(args.startType)}.`);
-    }
-  }
+  const startType = requiredDimensionValue(tool, args, "startType", START_TYPES, "get_startup_time_metrics");
+  const reportType = requiredDimensionValue(tool, args, "reportType", REPORT_TYPES, "get_error_counts");
 
   const format = args.format ?? "summary";
   if (!["summary", "raw"].includes(format)) {
     throw new InputError(`"format" must be "summary" or "raw", got ${JSON.stringify(args.format)}.`);
   }
 
-  return { days, limit, dimensions: [...new Set(dimensions)], versionCodes, apiLevels, startType, format };
+  return { days, limit, dimensions: [...new Set(dimensions)], versionCodes, apiLevels, startType, reportType, format };
 }
 
-function buildFilter({ versionCodes, apiLevels, startType }) {
-  const anyOf = (dimension, values) =>
-    values.length === 1
-      ? `${dimension} = ${values[0]}`
-      : `(${values.map((v) => `${dimension} = ${v}`).join(" OR ")})`;
+const anyOf = (field, values) =>
+  values.length === 1
+    ? `${field} = ${values[0]}`
+    : `(${values.map((v) => `${field} = ${v}`).join(" OR ")})`;
 
+function buildFilter({ versionCodes, apiLevels, startType, reportType }) {
   const clauses = [];
   if (versionCodes.length > 0) clauses.push(anyOf("versionCode", versionCodes));
   if (apiLevels.length > 0) clauses.push(anyOf("apiLevel", apiLevels));
   if (startType) clauses.push(`startType = ${startType}`);
+  if (reportType) clauses.push(`reportType = ${reportType}`);
   return clauses.length > 0 ? clauses.join(" AND ") : undefined;
 }
 
 // Follows nextPageToken; the API returns at most 1000 rows per page by default.
-async function queryAllPages(tool, requestBody) {
+async function queryAllPages(metricSet, requestBody) {
   const rows = [];
   let pageToken;
   for (let page = 0; page < MAX_PAGES; page++) {
-    const data = await apiRequest(`apps/${PACKAGE_NAME}/${tool.metricSet}:query`, {
+    const data = await apiRequest(`apps/${PACKAGE_NAME}/${metricSet}:query`, {
       method: "POST",
       data: { ...requestBody, pageSize: PAGE_SIZE, pageToken },
     });
@@ -281,30 +417,35 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-const percent = (fraction) => Math.round(fraction * 100 * 1000) / 1000;
-const isDailyRate = (metric) => metric !== "distinctUsers" && !metric.endsWith("UserWeighted");
+const isDailyMetric = (metric) => metric !== "distinctUsers" && !metric.endsWith("UserWeighted");
 
-function summarizeGroup({ dimensions, days }, tool) {
+function summarizeGroup({ dimensions, days }, set) {
+  const { format, aggregate } = KINDS[set.kind];
   days.sort((a, b) => a.date.localeCompare(b.date));
   const last = days[days.length - 1];
 
   const latest = {};
-  for (const metric of tool.metrics) {
+  for (const metric of set.metrics) {
     const value = last.metrics[metric];
-    if (metric !== "distinctUsers" && value !== null && value !== undefined) latest[metric] = percent(value);
+    if (metric !== "distinctUsers" && value !== null && value !== undefined) latest[metric] = format(value);
   }
 
-  const windowAvg = {};
-  if (days.length > 1) {
-    for (const metric of tool.metrics.filter(isDailyRate)) {
+  // Averages need more than one day to say anything; totals are always shown (they rank groups).
+  const windowValues = {};
+  if (aggregate === "sum" || days.length > 1) {
+    for (const metric of set.metrics.filter(isDailyMetric)) {
+      let total = 0;
       let weighted = 0;
       let users = 0;
       for (const { metrics } of days) {
-        if (metrics[metric] === null || metrics[metric] === undefined || !metrics.distinctUsers) continue;
+        if (metrics[metric] === null || metrics[metric] === undefined) continue;
+        total += metrics[metric];
+        if (!metrics.distinctUsers) continue;
         weighted += metrics[metric] * metrics.distinctUsers;
         users += metrics.distinctUsers;
       }
-      if (users > 0) windowAvg[metric] = percent(weighted / users);
+      if (aggregate === "sum") windowValues[metric] = format(total);
+      else if (users > 0) windowValues[metric] = format(weighted / users);
     }
   }
 
@@ -317,12 +458,14 @@ function summarizeGroup({ dimensions, days }, tool) {
       ? Math.round(userCounts.reduce((sum, n) => sum + n, 0) / userCounts.length)
       : null,
     latest,
-    ...(Object.keys(windowAvg).length > 0 ? { windowAvg } : {}),
+    ...(Object.keys(windowValues).length > 0
+      ? { [aggregate === "sum" ? "windowTotal" : "windowAvg"]: windowValues }
+      : {}),
   };
 }
 
-// Groups daily rows by their dimension values, then ranks groups by average daily users.
-function summarize(rows, tool) {
+// Groups daily rows by their dimension values, then ranks groups (see KINDS.rankedBy).
+function summarize(rows, set) {
   const groups = new Map();
   for (const row of rows) {
     const dimensions = Object.fromEntries(
@@ -335,16 +478,57 @@ function summarize(rows, tool) {
     if (!groups.has(key)) groups.set(key, { dimensions, days: [] });
     groups.get(key).days.push({ date: formatDate(row.startTime), metrics });
   }
+  const rank = set.kind === "count"
+    ? (g) => g.windowTotal?.errorReportCount ?? 0
+    : (g) => g.avgDailyUsers ?? 0;
   return [...groups.values()]
-    .map((group) => summarizeGroup(group, tool))
-    .sort((a, b) => (b.avgDailyUsers ?? 0) - (a.avgDailyUsers ?? 0));
+    .map((group) => summarizeGroup(group, set))
+    .sort((a, b) => rank(b) - rank(a));
 }
 
-function byStartType(a, b) {
-  return START_TYPES.indexOf(a.dimensions?.startType) - START_TYPES.indexOf(b.dimensions?.startType);
+// Orders `overall` entries by the set's required dimension (COLD, WARM, HOT / CRASH, ANR).
+function byRequiredDimension(set) {
+  const [dimension] = set.requiredDimensions;
+  const order = REQUIRED_DIMENSION_ORDER[dimension];
+  if (!order) return () => 0;
+  const position = (entry) => {
+    const i = order.indexOf(entry.dimensions?.[dimension]);
+    return i === -1 ? order.length : i;
+  };
+  return (a, b) => position(a) - position(b);
 }
 
-async function runTool(tool, options) {
+async function summarizeMetricSet(set, timelineSpec, filter, options) {
+  const request = (dimensions) => ({
+    timelineSpec,
+    metrics: set.metrics,
+    dimensions: [...set.requiredDimensions, ...dimensions],
+    ...(filter ? { filter } : {}),
+  });
+
+  // The headline comes from its own query: summing per-group rows would double-count users.
+  const [overall, breakdown] = await Promise.all([
+    queryAllPages(set.name, request([])),
+    options.dimensions.length > 0 ? queryAllPages(set.name, request(options.dimensions)) : null,
+  ]);
+
+  const section = { overall: summarize(overall.rows, set).sort(byRequiredDimension(set)) };
+  if (breakdown) {
+    const groups = summarize(breakdown.rows, set);
+    section.breakdown = {
+      dimensions: [...set.requiredDimensions, ...options.dimensions],
+      groupsTotal: groups.length,
+      groupsShown: Math.min(groups.length, options.limit),
+      rankedBy: KINDS[set.kind].rankedBy,
+      groups: groups.slice(0, options.limit),
+    };
+  }
+  if (overall.truncated || breakdown?.truncated) section.truncated = true;
+  if (section.overall.length === 0) section.note = "No data returned for this window and filter.";
+  return section;
+}
+
+async function runMetricSetTool(tool, options) {
   const timeRange = getTimeRange(options.days);
   const timelineSpec = {
     aggregationPeriod: "DAILY",
@@ -352,54 +536,41 @@ async function runTool(tool, options) {
     endTime: timeRange.endTime,
   };
   const filter = buildFilter(options);
-  const request = (dimensions) => ({
-    timelineSpec,
-    metrics: tool.metrics,
-    dimensions: [...tool.requiredDimensions, ...dimensions],
-    ...(filter ? { filter } : {}),
-  });
 
   if (options.format === "raw") {
-    const { rows, truncated } = await queryAllPages(tool, request(options.dimensions));
-    return { rows, ...(truncated ? { truncated: true } : {}) };
+    const results = await Promise.all(tool.sets.map((set) => queryAllPages(set.name, {
+      timelineSpec,
+      metrics: set.metrics,
+      dimensions: [...set.requiredDimensions, ...options.dimensions],
+      ...(filter ? { filter } : {}),
+    })));
+    const raw = ({ rows, truncated }) => ({ rows, ...(truncated ? { truncated: true } : {}) });
+    if (tool.sets.length === 1) return raw(results[0]);
+    return { sections: Object.fromEntries(tool.sets.map((set, i) => [set.name, raw(results[i])])) };
   }
 
-  // The headline comes from its own query: summing per-group rows would double-count users.
-  const [overall, breakdown] = await Promise.all([
-    queryAllPages(tool, request([])),
-    options.dimensions.length > 0 ? queryAllPages(tool, request(options.dimensions)) : null,
-  ]);
-
-  const result = {
+  const sections = await Promise.all(
+    tool.sets.map((set) => summarizeMetricSet(set, timelineSpec, filter, options))
+  );
+  const kind = KINDS[tool.kind];
+  const header = {
     app: PACKAGE_NAME,
-    metricSet: tool.metricSet,
+    ...(tool.sets.length === 1 ? { metricSet: tool.sets[0].name } : {}),
     window: {
       from: formatDate(timeRange.startTime),
       to: lastDayBefore(timeRange.endTime),
       timeZone: "America/Los_Angeles",
     },
     filter: filter ?? null,
-    rateUnit: "percent",
-    legend: LEGEND,
-    overall: summarize(overall.rows, tool).sort(byStartType),
+    ...kind.unit,
+    legend: kind.legend,
   };
-
-  if (breakdown) {
-    const groups = summarize(breakdown.rows, tool);
-    result.breakdown = {
-      dimensions: [...tool.requiredDimensions, ...options.dimensions],
-      groupsTotal: groups.length,
-      groupsShown: Math.min(groups.length, options.limit),
-      rankedBy: "avgDailyUsers",
-      groups: groups.slice(0, options.limit),
-    };
-  }
-  if (overall.truncated || breakdown?.truncated) result.truncated = true;
-  if (result.overall.length === 0) result.note = "No data returned for this window and filter.";
-  return result;
+  if (tool.sets.length === 1) return { ...header, ...sections[0] };
+  return { ...header, sections: Object.fromEntries(tool.sets.map((set, i) => [set.name, sections[i]])) };
 }
 
 function inputSchemaFor(tool) {
+  const kind = KINDS[tool.kind];
   const properties = {
     days: {
       type: "integer",
@@ -409,11 +580,11 @@ function inputSchemaFor(tool) {
     },
     dimensions: {
       type: "array",
-      items: { type: "string", enum: BREAKDOWN_DIMENSIONS },
+      items: { type: "string", enum: tool.dimensions },
       default: DEFAULT_DIMENSIONS,
       description:
         'Breakdown for the per-group section. Default ["versionCode"]. Use ["versionCode", "apiLevel"] ' +
-        "to find OS-specific regressions, or [] for the overall figures only.",
+        "to find OS-specific regressions, or [] for the overall figures only." + (tool.dimensionsHint ?? ""),
     },
     versionCodes: {
       type: "array",
@@ -429,15 +600,13 @@ function inputSchemaFor(tool) {
       type: "string",
       enum: ["summary", "raw"],
       default: "summary",
-      description:
-        "summary (default): overall figures plus the top groups, rates in percent. raw: every daily " +
-        "row from the API as fractions (0–1) — large; use only to debug.",
+      description: kind.formatDescription,
     },
     limit: {
       type: "integer",
       minimum: 1,
       default: DEFAULT_LIMIT,
-      description: "summary only: maximum groups returned, ranked by average daily distinctUsers.",
+      description: `summary only: maximum groups returned, ranked by ${kind.rankDescription}.`,
     },
   };
   if (tool.requiredDimensions.includes("startType")) {
@@ -445,6 +614,13 @@ function inputSchemaFor(tool) {
       type: "string",
       enum: START_TYPES,
       description: "Only include this start type. Omit to get COLD, WARM and HOT.",
+    };
+  }
+  if (tool.requiredDimensions.includes("reportType")) {
+    properties.reportType = {
+      type: "string",
+      enum: REPORT_TYPES,
+      description: "Only include this report type. Omit to get CRASH and ANR.",
     };
   }
   return { type: "object", properties };
@@ -476,7 +652,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     const options = parseArgs(tool, args ?? {});
-    const result = await runTool(tool, options);
+    const result = await runMetricSetTool(tool, options);
     // Raw output is already large; skip indentation there.
     const text = JSON.stringify(result, null, options.format === "raw" ? 0 : 1);
     return { content: [{ type: "text", text }] };
@@ -484,7 +660,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (error instanceof InputError) return errorResult(`Invalid arguments: ${error.message}`);
     if (/only accessible to games/i.test(error.message)) {
       return errorResult(
-        `Google Play returned: "${error.message}". The Reporting API exposes ${tool.metricSet} only ` +
+        `Google Play returned: "${error.message}". The Reporting API exposes ${tool.metricSets.join(", ")} only ` +
         `for apps categorized as games, so it is not available for ${PACKAGE_NAME}. Check Play Console → ` +
         "Android vitals for this app's rendering data, or measure jank locally (Macrobenchmark " +
         "FrameTimingMetric, JankStats)."
